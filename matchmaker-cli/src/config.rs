@@ -7,7 +7,7 @@ use matchmaker::config::*;
 
 use matchmaker::action::Actions;
 use matchmaker::binds::Trigger;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use crate::action::MMAction;
 
@@ -26,7 +26,7 @@ pub struct Config {
     #[partial(attr)]
     #[partial(alias = "b")]
     #[partial(recurse = "", unwrap)]
-    pub binds: BTreeMap<Trigger, Actions<MMAction>>,
+    pub binds: HashMap<Trigger, Actions<MMAction>>,
 
     // configure the tui
     #[serde(default)]

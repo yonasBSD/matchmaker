@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    collections::BTreeMap,
+    collections::HashMap,
     fmt::{self, Display},
     str::FromStr,
 };
@@ -22,7 +22,7 @@ pub use crokey::{KeyCombination, key};
 pub use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
 
 #[allow(type_alias_bounds)]
-pub type BindMap<A: ActionExt = NullActionExt> = BTreeMap<Trigger, Actions<A>>;
+pub type BindMap<A: ActionExt = NullActionExt> = HashMap<Trigger, Actions<A>>;
 
 #[easy_ext::ext(BindMapExt)]
 impl<A: ActionExt> BindMap<A> {
@@ -271,11 +271,6 @@ impl<'de> serde::Deserialize<'de> for Trigger {
     }
 }
 
-#[derive(Serialize)]
-#[serde(bound(serialize = "",))]
-struct BindFmtWrapper<'a, A: ActionExt + Display> {
-    binds: &'a BindMap<A>,
-}
 use ratatui::style::Style;
 use ratatui::text::{Line, Span, Text};
 use regex::Regex;
@@ -354,6 +349,37 @@ pub fn display_binds<A: ActionExt + Display>(
     }
 
     text
+}
+
+struct BindFmtWrapper<'a, A: ActionExt + Display> {
+    binds: &'a BindMap<A>,
+}
+
+use serde::ser::{SerializeMap, Serializer};
+
+impl<'a, A> Serialize for BindFmtWrapper<'a, A>
+where
+    A: ActionExt + Display,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut entries: Vec<_> = self.binds.iter().collect();
+
+        // Sort by value.to_string()
+        entries.sort_by(|(_, v1), (_, v2)| {
+            v1.0.iter()
+                .map(ToString::to_string)
+                .cmp(v2.0.iter().map(ToString::to_string))
+        });
+
+        let mut map = serializer.serialize_map(Some(entries.len()))?;
+        for (k, v) in entries {
+            map.serialize_entry(k, v)?;
+        }
+        map.end()
+    }
 }
 
 #[cfg(test)]

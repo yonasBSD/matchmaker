@@ -12,7 +12,7 @@ use crossterm::event::{
 use futures::stream::StreamExt;
 use log::{debug, error, info, warn};
 use ratatui::layout::Rect;
-use std::collections::btree_map::Entry;
+use std::collections::hash_map::Entry;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 use tokio::time::{self};

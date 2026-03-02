@@ -105,7 +105,7 @@ struct AppConfig {
 
 fn main() {
     let mut config = AppConfig::default();
-    
+
     let partial = PartialAppConfig {
         name: Some("Nested Example".into()),
         ui: PartialUIConfig {
@@ -115,7 +115,7 @@ fn main() {
     };
 
     config.apply(partial);
-    
+
     assert_eq!(config.ui.width, 1024);
     assert_eq!(config.ui.height, 0); // Original/Default value preserved
 }
@@ -123,7 +123,7 @@ fn main() {
 
 ## Collections
 
-When `#[partial(unwrap)]`is applied to a collection (`HashMap, Vec, BTreeMap, BTreeSet`), the corresponding field omits the wrapping `Option`. This holds even for collections wrapped in Option.
+When `#[partial(unwrap)]`is applied to a collection (`HashMap, Vec, HashMap, BTreeSet`), the corresponding field omits the wrapping `Option`. This holds even for collections wrapped in Option.
 
 When `#[partial(recurse)]` is applied to a collection, the nesting propogates to the internal type: `Vec<Inner>` becomes `Vec<PartialInner>`.
 

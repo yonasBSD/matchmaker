@@ -2,7 +2,7 @@
 
 use matchmaker_partial::*;
 use matchmaker_partial_macros::partial;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 macro_rules! vec_ {
     ($($elem:expr),* $(,)?) => {
@@ -16,7 +16,7 @@ fn test_map_set_path() {
     #[derive(Debug, PartialEq, Default, Clone)]
     struct MapStruct {
         #[partial(recurse = "")]
-        pub binds: BTreeMap<String, String>,
+        pub binds: HashMap<String, String>,
     }
 
     let mut p = PartialMapStruct::default();
@@ -53,14 +53,14 @@ fn test_map_apply_overwrite_vs_extend() {
     #[derive(Debug, PartialEq, Default, Clone)]
     struct ExtendStruct {
         #[partial(recurse)]
-        pub map: BTreeMap<String, Val>,
+        pub map: HashMap<String, Val>,
     }
 
     #[partial]
     #[derive(Debug, PartialEq, Default, Clone)]
     struct OverwriteStruct {
         #[partial(recurse)]
-        pub map: BTreeMap<String, Val>,
+        pub map: HashMap<String, Val>,
     }
 
     // 1. Test Extend (unwrapped)
@@ -91,7 +91,7 @@ fn test_map_apply_overwrite_vs_extend() {
     ovr.map.insert("a".to_string(), Val { x: 1 });
 
     let mut p_ovr = PartialOverwriteStruct::default();
-    let mut p_map = BTreeMap::new();
+    let mut p_map = HashMap::new();
     let mut p_val = PartialVal::default();
     p_val.x = Some(2);
     p_map.insert("b".to_string(), p_val);
