@@ -19,7 +19,7 @@ use super::{injector::WorkerInjector, query::PickerQuery};
 use crate::{
     SSS,
     nucleo::Render,
-    utils::text::{plain_text, wrap_text},
+    utils::text::{text_to_string, wrap_text},
 };
 
 type ColumnFormatFn<T> = Box<dyn for<'a> Fn(&'a T) -> Text<'a> + Send + Sync>;
@@ -62,7 +62,7 @@ impl<T> Column<T> {
 
     // Note: the characters should match the output of [`Self::format`]
     pub(super) fn format_text<'a>(&self, item: &'a T) -> Cow<'a, str> {
-        Cow::Owned(plain_text(&(self.format)(item)))
+        Cow::Owned(text_to_string(&(self.format)(item)))
     }
 }
 
@@ -287,6 +287,7 @@ impl<T: SSS> Worker<T> {
         width_limits: &[u16],
         highlight_style: Style,
         matcher: &mut nucleo::Matcher,
+        match_start_context: Option<usize>,
     ) -> (WorkerResults<'_, T>, Vec<u16>, Status) {
         let (snapshot, status) = Self::new_snapshot(&mut self.nucleo);
 
@@ -323,6 +324,7 @@ impl<T: SSS> Worker<T> {
                                 highlight_style,
                                 width_limit,
                                 &mut self.col_indices_buffer,
+                                match_start_context,
                             )
                         } else if width_limit != u16::MAX {
                             let (cell, wrapped) = wrap_text(cell, width_limit - 1);
@@ -395,6 +397,7 @@ impl<T: SSS> Worker<T> {
 }
 
 fn render_cell<T: SSS>(
+    // Assuming T implements the required SSS/Config trait
     cell: Text<'_>,
     col_idx: usize,
     snapshot: &nucleo::Snapshot<T>,
@@ -403,6 +406,7 @@ fn render_cell<T: SSS>(
     highlight_style: Style,
     width_limit: u16,
     col_indices_buffer: &mut Vec<u32>,
+    match_start_context: Option<usize>,
 ) -> (Text<'static>, usize) {
     let mut cell_width = 0;
     let mut wrapped = false;
@@ -423,11 +427,10 @@ fn render_cell<T: SSS>(
     let mut next_highlight_idx = indices.next().unwrap_or(u32::MAX);
     let mut grapheme_idx = 0u32;
 
-    for line in cell {
-        let mut current_spans = Vec::new();
-        let mut current_span = String::new();
-        let mut current_style = Style::default();
-        let mut current_width = 0;
+    for line in &cell {
+        // 1: Collect graphemes, compute styles, and find the first match on this line.
+        let mut line_graphemes = Vec::new();
+        let mut first_match_idx = None;
 
         for span in line {
             // this looks like a bug on first glance, we are iterating
@@ -435,54 +438,100 @@ fn render_cell<T: SSS>(
             // this is correct is that nucleo will only ever consider the first char
             // of a grapheme (and discard the rest of the grapheme) so the indices
             // returned by nucleo are essentially grapheme indecies
-
-            if width_limit != u16::MAX {}
             let mut graphemes = span.content.graphemes(true).peekable();
+
             while let Some(grapheme) = graphemes.next() {
-                let grapheme_width = UnicodeWidthStr::width(grapheme);
+                let is_match = grapheme_idx == next_highlight_idx;
 
-                if width_limit != u16::MAX {
-                    if current_width + grapheme_width > (width_limit - 1) as usize && {
-                        grapheme_width > 1 || graphemes.peek().is_some()
-                    } {
-                        current_spans.push(Span::styled(current_span, current_style));
-                        current_spans.push(Span::styled(
-                            "↵",
-                            Style::default().add_modifier(Modifier::DIM),
-                        ));
-                        lines.push(Line::from(current_spans));
-
-                        current_spans = Vec::new();
-                        current_span = String::new();
-                        current_width = 0;
-                        wrapped = true;
-                    }
-                }
-
-                let style = if grapheme_idx == next_highlight_idx {
+                let style = if is_match {
                     next_highlight_idx = indices.next().unwrap_or(u32::MAX);
                     span.style.patch(highlight_style)
                 } else {
                     span.style
                 };
 
-                if style != current_style {
-                    if !current_span.is_empty() {
-                        current_spans.push(Span::styled(current_span, current_style))
-                    }
-                    current_span = String::new();
-                    current_style = style;
+                if is_match && first_match_idx.is_none() {
+                    first_match_idx = Some(line_graphemes.len());
                 }
-                current_span.push_str(grapheme);
+
+                line_graphemes.push((grapheme, style));
                 grapheme_idx += 1;
-                current_width += grapheme_width;
             }
+        }
+
+        // 2: Calculate where to start rendering this line
+        let mut start_idx = 0;
+
+        if let (Some(n), Some(first_idx)) = (match_start_context, first_match_idx) {
+            start_idx = first_idx.saturating_sub(n);
+
+            // If width_limit is given, Try to start earlier provided we don't exceed width_limit.
+            if width_limit != u16::MAX {
+                let mut tail_width: usize = line_graphemes[start_idx..]
+                    .iter()
+                    .map(|(g, _)| g.width())
+                    .sum();
+
+                // Expand leftwards as long as the total rendered width <= width_limit
+                while start_idx > 0 {
+                    let prev_width = line_graphemes[start_idx - 1].0.width();
+                    if tail_width + prev_width <= width_limit as usize {
+                        start_idx -= 1;
+                        tail_width += prev_width;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 3: Apply the standard wrapping and Span generation logic to the visible slice
+        let mut current_spans = Vec::new();
+        let mut current_span = String::new();
+        let mut current_style = Style::default();
+        let mut current_width = 0;
+
+        let mut graphemes = line_graphemes[start_idx..].iter().peekable();
+
+        while let Some(&(grapheme, style)) = graphemes.next() {
+            let grapheme_width = grapheme.width();
+
+            if width_limit != u16::MAX {
+                if current_width + grapheme_width > (width_limit - 1) as usize && {
+                    grapheme_width > 1 || graphemes.peek().is_some()
+                } {
+                    if !current_span.is_empty() {
+                        current_spans.push(Span::styled(current_span, current_style));
+                    }
+                    current_spans.push(Span::styled(
+                        "↵",
+                        Style::default().add_modifier(Modifier::DIM),
+                    ));
+                    lines.push(Line::from(current_spans));
+
+                    current_spans = Vec::new();
+                    current_span = String::new();
+                    current_width = 0;
+                    wrapped = true;
+                }
+            }
+
+            if style != current_style {
+                if !current_span.is_empty() {
+                    current_spans.push(Span::styled(current_span, current_style))
+                }
+                current_span = String::new();
+                current_style = style;
+            }
+            current_span.push_str(grapheme);
+            current_width += grapheme_width;
         }
 
         current_spans.push(Span::styled(current_span, current_style));
         lines.push(Line::from(current_spans));
         cell_width = cell_width.max(current_width);
-        grapheme_idx += 1; // newline?
+
+        grapheme_idx += 1; // newline
     }
 
     (
@@ -493,4 +542,128 @@ fn render_cell<T: SSS>(
             cell_width
         },
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nucleo::{Matcher, Nucleo};
+    use ratatui::style::{Color, Style};
+    use ratatui::text::Text;
+    use std::sync::Arc;
+
+    /// Sets up the necessary Nucleo state to trigger a match
+    fn setup_nucleo_mocks(
+        search_query: &str,
+        item_text: &str,
+    ) -> (Nucleo<String>, Matcher, Vec<u32>) {
+        let mut nucleo = Nucleo::<String>::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
+
+        let injector = nucleo.injector();
+        injector.push(item_text.to_string(), |item, columns| {
+            columns[0] = item.clone().into();
+        });
+
+        nucleo.pattern.reparse(
+            0,
+            search_query,
+            nucleo::pattern::CaseMatching::Ignore,
+            nucleo::pattern::Normalization::Smart,
+            false,
+        );
+
+        nucleo.tick(10); // Process the item
+
+        let matcher = Matcher::default();
+        let buffer = Vec::new();
+
+        (nucleo, matcher, buffer)
+    }
+
+    #[test]
+    fn test_no_scroll_context_renders_normally() {
+        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "hello match world");
+        let snapshot = nucleo.snapshot();
+        let item = snapshot.get_item(0).unwrap();
+
+        let cell = Text::from("hello match world");
+        let highlight = Style::default().fg(Color::Red);
+
+        let (result_text, width) = render_cell(
+            cell,
+            0,
+            &snapshot,
+            &item,
+            &mut matcher,
+            highlight,
+            u16::MAX,
+            &mut buffer,
+            None,
+        );
+
+        let output_str = text_to_string(&result_text);
+        assert_eq!(output_str, "hello match world");
+        assert_eq!(width, 17);
+    }
+
+    #[test]
+    fn test_scroll_context_cuts_prefix_correctly() {
+        // Match starts at index 6 ("match"). Context is 2.
+        // We expect it to drop "hell", keep "o ", and render "o match world"
+        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "hello match world");
+        let snapshot = nucleo.snapshot();
+        let item = snapshot.get_item(0).unwrap();
+
+        let cell = Text::from("hello match world");
+        let highlight = Style::default().fg(Color::Red);
+
+        // Width limit MAX so no backfill constraint triggers
+        let (result_text, _) = render_cell(
+            cell,
+            0,
+            &snapshot,
+            &item,
+            &mut matcher,
+            highlight,
+            u16::MAX,
+            &mut buffer,
+            Some(2),
+        );
+
+        let output_str = text_to_string(&result_text);
+        assert_eq!(output_str, "o match world");
+    }
+
+    #[test]
+    fn test_scroll_context_backfills_to_fill_width_limit() {
+        // Query "match". Starts at index 10.
+        // "abcdefghijmatch"
+        // If context = 1, normally we'd start at index 9 ("jmatch"). Width = 6.
+        // If width_limit = 10, the backfill logic should expand backwards
+        // to consume 4 more characters to fill the 10-char limit without wrapping.
+        // Expected start: "fghijmatch"
+
+        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "abcdefghijmatch");
+        let snapshot = nucleo.snapshot();
+        let item = snapshot.get_item(0).unwrap();
+
+        let cell = Text::from("abcdefghijmatch");
+        let highlight = Style::default().fg(Color::Red);
+
+        let (result_text, width) = render_cell(
+            cell,
+            0,
+            &snapshot,
+            &item,
+            &mut matcher,
+            highlight,
+            10,
+            &mut buffer,
+            Some(1),
+        );
+
+        let output_str = text_to_string(&result_text);
+        assert_eq!(output_str, "fghijmatch");
+        assert_eq!(width, 10);
+    }
 }

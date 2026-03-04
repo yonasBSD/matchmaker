@@ -177,7 +177,7 @@ impl ResultsUI {
         if self.cursor + 1 + self.scroll_padding() >= self.height
             && self.bottom + (self.height as u32) < self.status.matched_count
         {
-            self.bottom += 1; // 
+            self.bottom += 1; //
         } else if self.index() < self.end() {
             self.cursor += 1;
         } else if self.config.scroll_wrap {
@@ -248,7 +248,7 @@ impl ResultsUI {
         }
 
         let mut last_scalable = None;
-        let available = self.width().saturating_sub(total - scale_total); // 
+        let available = self.width().saturating_sub(total - scale_total); //
 
         let mut used_total = 0;
         for (i, x) in widths.iter_mut().enumerate() {
@@ -310,8 +310,14 @@ impl ResultsUI {
                 .collect()
         };
 
-        let (mut results, mut widths, status) =
-            worker.results(offset, end, &width_limits, self.match_style(), matcher);
+        let (mut results, mut widths, status) = worker.results(
+            offset,
+            end,
+            &width_limits,
+            self.match_style(),
+            matcher,
+            self.config.match_start_context,
+        );
 
         // log::debug!("widths: {width_limits:?}, {widths:?}");
 

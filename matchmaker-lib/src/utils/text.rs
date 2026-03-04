@@ -10,14 +10,6 @@ use ratatui::{
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-pub fn plain_text(text: &Text) -> String {
-    text.lines
-        .iter()
-        .map(|line| line.iter().map(|s| s.content.as_ref()).collect::<String>())
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
 use std::cmp::{max, min};
 #[allow(unused)]
 pub fn apply_style_at(mut text: Text<'_>, start: usize, len: usize, style: Style) -> Text<'_> {
@@ -119,12 +111,7 @@ pub fn clip_text_lines<'a, 'b: 'a>(original: &'a mut Text<'b>, max_lines: u16, r
 }
 
 pub fn wrapped_line_height(line: &Line<'_>, width: u16) -> u16 {
-    let w = line.width();
-    if w == 0 {
-        1
-    } else {
-        w.div_ceil(width as usize) as u16
-    }
+    line.width().div_ceil(width as usize) as u16
 }
 
 pub fn wrap_text<'a>(text: Text<'a>, max_width: u16) -> (Text<'a>, bool) {

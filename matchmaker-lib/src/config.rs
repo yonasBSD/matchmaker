@@ -336,9 +336,12 @@ pub struct ResultsConfig {
     pub wrap: bool,
     pub min_wrap_width: u16,
 
+    // ------------
     // experimental
+    // ------------
     pub column_spacing: Count,
     pub current_prefix: String,
+    pub match_start_context: Option<usize>,
 
     // lowpri: maybe space-around/space-between instead?
     #[partial(alias = "ra")]
@@ -385,6 +388,7 @@ impl Default for ResultsConfig {
 
             wrap: Default::default(),
             min_wrap_width: 6,
+            match_start_context: Some(4),
 
             column_spacing: Default::default(),
             current_prefix: Default::default(),
