@@ -10,7 +10,7 @@ use crate::{
 };
 
 // --------------------------------------------------------------------
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct State {
     last_id: Option<u32>,
     interrupt: Interrupt,
@@ -177,11 +177,17 @@ impl State {
         self.synced[1] |= status.running;
         if status.changed {
             // add a synced event when worker stops running
-            if !picker_ui.results.status.running && self.synced[1] {
+            if !picker_ui.results.status.running {
                 if !self.synced[0] {
-                    self.insert(Event::Synced);
-                    self.synced[0] = true;
+                    // this is supposed to fire when all inputs have been loaded into nucleo although it clearly can't be race-free
+                    if picker_ui.results.status.item_count > 0 {
+                        self.insert(Event::Synced);
+                        self.synced[0] = true;
+                    }
                 } else {
+                    // this should be emitted every time input filter changes
+                    // note that this will never emit on empty input
+                    log::trace!("resynced on iteration {}", self.iterations);
                     self.insert(Event::Resynced);
                 }
             }
@@ -201,6 +207,7 @@ impl State {
             self.last_id = new_id;
             self.insert(Event::CursorChange);
         }
+        // log::trace!("{self:?}");
     }
 
     // ---------- flush -----------
@@ -349,19 +356,6 @@ pub(crate) fn get_current<T: SSS, S: Selection>(picker_ui: &PickerUI<T, S>) -> O
 }
 
 // ----- BOILERPLATE -----------
-impl std::fmt::Debug for State {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("State")
-            .field("input", &self.input)
-            .field("preview_payload", &self.preview_payload)
-            .field("iterations", &self.iterations)
-            .field("preview_show", &self.preview_visible)
-            .field("layout", &self.layout)
-            .field("events", &self.events)
-            .finish_non_exhaustive()
-    }
-}
-
 impl<'a, 'b: 'a, T: SSS, S: Selection> std::ops::Deref for MMState<'a, 'b, T, S> {
     type Target = State;
 

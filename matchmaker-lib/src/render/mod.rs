@@ -153,7 +153,15 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             )
                         };
                         if !content.is_empty() {
-                            picker_ui.input.push_str(&content);
+                            if let Some(x) = overlay_ui.as_mut()
+                                && x.index().is_some()
+                            {
+                                for c in content.chars() {
+                                    x.handle_input(c);
+                                }
+                            } else {
+                                picker_ui.input.push_str(&content);
+                            }
                         }
                     }
                 }

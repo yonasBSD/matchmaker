@@ -74,17 +74,11 @@ pub fn prefix_text<'a, 'b: 'a>(
     original: &'a mut Text<'b>,
     prefix: impl Into<Cow<'b, str>> + Clone,
 ) {
-    let new_lines: Vec<Line> = original
-        .lines
-        .iter()
-        .map(|line| {
-            let mut new_line = vec![Span::raw(prefix.clone())];
-            new_line.extend(line.iter().cloned());
-            Line::from(new_line)
-        })
-        .collect();
+    let prefix_span = Span::raw(prefix.into());
 
-    *original = Text::from(new_lines);
+    for line in original.lines.iter_mut() {
+        line.spans.insert(0, prefix_span.clone());
+    }
 }
 
 /// Clip text to a given number of lines.

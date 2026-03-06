@@ -5,7 +5,7 @@ use std::{
 };
 
 use arrayvec::ArrayVec;
-use cli_boilerplate_automation::{_log, bath::PathExt, broc::CommandExt, env_vars};
+use cli_boilerplate_automation::{bath::PathExt, broc::CommandExt, env_vars};
 use easy_ext::ext;
 use log::{debug, info, warn};
 use ratatui::text::Text;
@@ -663,7 +663,7 @@ pub fn make_previewer<T: SSS, S: Selection>(
 
     // preview handler
     mm.register_event_handler(Event::CursorChange | Event::PreviewChange, move |state, _| {
-            if state.preview_visible &&
+            if state.preview_visible() &&
             let Some(t) = state.current_raw() &&
             let m = state.preview_payload() &&
             !m.is_empty()
@@ -677,7 +677,6 @@ pub fn make_previewer<T: SSS, S: Selection>(
                 envs.extend(extra);
 
                 let msg = PreviewMessage::Run(cmd.clone(), envs);
-                _log!("{cmd:?}");
                 if preview_tx.send(msg.clone()).is_err() {
                     warn!("Failed to send to preview: {}", msg)
                 }
@@ -701,7 +700,7 @@ pub fn make_previewer<T: SSS, S: Selection>(
     );
 
     mm.register_event_handler(Event::PreviewSet, move |state, _event| {
-        if state.preview_visible {
+        if state.preview_visible() {
             let msg = if let Some(m) = state.preview_set_payload() {
                 let m = if m.is_empty() && !help_str.lines.is_empty() {
                     help_str.clone()

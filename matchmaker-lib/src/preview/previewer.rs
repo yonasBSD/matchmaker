@@ -18,11 +18,12 @@ use crate::event::EventSender;
 use crate::message::Event;
 use crate::preview::Preview;
 
-#[derive(Debug, strum_macros::Display, Clone)]
+#[derive(Debug, Default, strum_macros::Display, Clone)]
 pub enum PreviewMessage {
     Run(String, EnvVars),
     Set(Text<'static>),
     Unset,
+    #[default]
     Stop,
     Pause,
     Unpause,

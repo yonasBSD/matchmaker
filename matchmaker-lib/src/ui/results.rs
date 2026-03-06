@@ -227,7 +227,7 @@ impl ResultsUI {
         } else {
             0
         };
-        log::debug!("hscrol:: {value}");
+        // log::trace!("hscroll:: {value}");
     }
 
     // ------- RENDERING ----------
@@ -587,6 +587,7 @@ impl ResultsUI {
             };
 
             if hz {
+                // scroll down
                 if self.is_current(i) && self.scroll[0] > 0 {
                     for (x, t) in row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0) {
                         if self.col.is_none() || self.col() == Some(x) {
@@ -631,35 +632,26 @@ impl ResultsUI {
                     .enumerate()
                     .map(|(x, mut t)| {
                         let mut t = if self.is_current(i)
-                            && (self.col.is_none()
+                            && (self.col.is_none() || self.col == Some(x))
+                        {
+                            if self.scroll[1] > 0 {
+                                apply_to_lines(&mut t, |line| hscroll_line(line, self.scroll[1]));
+                            }
+
+                            if self.col.is_none()
                                 && matches!(
                                     self.config.row_connection_style,
                                     RowConnectionStyle::Disjoint
                                 )
-                                || self.col == Some(x))
-                        {
-                            if self.col.is_none() || self.col == Some(x) {
-                                if self.scroll[1] > 0 {
-                                    apply_to_lines(&mut t, |line| {
-                                        hscroll_line(line, self.scroll[1])
-                                    });
-                                }
-                                if self.col.is_none()
-                                    && !matches!(
-                                        self.config.row_connection_style,
-                                        RowConnectionStyle::Disjoint
-                                    )
-                                {
-                                    t
-                                } else {
-                                    t.style(self.current_style())
-                                }
+                            {
+                                t.style(self.current_style())
                             } else {
                                 t
                             }
                         } else {
                             t
                         };
+
                         // prefix after hscroll
                         if x == 0 {
                             prefix_text(&mut t, prefix.clone());
