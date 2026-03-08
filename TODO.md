@@ -6,23 +6,42 @@
   - query change
   - frecency
   - api
-- column change propogates to pickerquery
-- dynamically adjusting column hide/filtering
-  - column: column hide should be external, not on the column object
-  - formatter:
-  - {\_} to join together all visible column outputs
-  - {+}
-  - {!} current column
-- configurable active and passive column colors
-- benchmarks (what kinds of speed matter?)
+
 - Add support for nucleo::Pattern in the matcher config
 - Adaptable percentage (higher on smaller)
-- Offload large previews to disk
 - better hr styling (dim etc.)
-- Previewer debouncing
-- read/write state which integrates with shell outputs and set_ actions
 
+# Previewer
+- Offload large previews to disk
+- Caching (?)
+- debouncing (?)
+
+# Perf
+- benchmarks
+  - (what kinds of speed matter?)
 - https://github.com/saghen/frizbee
+
+# Columns
+- dynamically adjusting column hide/filtering
+  - formatter:
+  - {} to join all, with single quote wrap/escaping
+  - {=} to join all, without single quotes
+  - {..} to join together all *visible* column outputs
+  - {+} to output {} for each selected {}, concatenated by space
+  - {+=} the same, without single quote wrap/escape
+  - {!}/{+!}/{=!} current column content
+  - {col}/{+col}/{=col} specific column content
+  - {col1,col2}, {col1,..}: col slicing
+
+  - current_column is currently both a worker and a ui state, we should remove ui navigation controls in favor of forcing the %col syntax.
+  - result styles should distinguish between filtering and non-filtering-columns: current and default
+  - RowConnection::Full means to ignore non-filtering-column styles
+
+  - problems:
+    - no option for a set of non-exclusive columns: if the default query matches the default column or any in this set, include this result
+    - hidden columns is a ui state, we need to expose it to the formatter, maybe just use atomics
+
+  - (fist: lowpri): execute: use of {*} in place of {+}: execute once for each selected
 
 # Bugs
 
