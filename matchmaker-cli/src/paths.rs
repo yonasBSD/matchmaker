@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cli_boilerplate_automation::expr_as_path_fn;
+use cba::expr_as_path_fn;
 
 use crate::clap::LIBRARY_FULL;
 

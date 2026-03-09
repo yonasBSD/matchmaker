@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::{bait::TransformExt, broc::EnvVars, env_vars, unwrap};
+use cba::{bait::TransformExt, broc::EnvVars, env_vars, unwrap};
 
 use crate::{
     SSS, Selection, Selector,

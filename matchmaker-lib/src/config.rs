@@ -12,7 +12,7 @@ use crate::{
     utils::serde::{escaped_opt_char, escaped_opt_string, serde_duration_ms},
 };
 
-use cli_boilerplate_automation::serde::transform::{
+use cba::serde::transform::{
     camelcase_normalized, camelcase_normalized_option,
 };
 use ratatui::{

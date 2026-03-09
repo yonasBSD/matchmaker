@@ -1,6 +1,6 @@
 use crate::config::TerminalConfig;
 use anyhow::Result;
-use cli_boilerplate_automation::bait::ResultExt;
+use cba::bait::ResultExt;
 use crossterm::{
     event::{
         DisableMouseCapture, EnableMouseCapture, KeyboardEnhancementFlags,

@@ -1,5 +1,5 @@
 use crate::clap::{BINARY_SHORT, LIBRARY_FULL};
-use cli_boilerplate_automation::{
+use cba::{
     bait::ResultExt,
     bog::{self, BogOkExt},
 };
@@ -19,6 +19,7 @@ pub fn init_logger([q, v]: [u8; 2], log_path: &Path) {
             builder
                 .filter(None, log::LevelFilter::Info)
                 .filter(Some(LIBRARY_FULL), log::LevelFilter::Debug)
+                .filter(Some("cba"), log::LevelFilter::Debug)
                 .filter(Some(BINARY_SHORT), log::LevelFilter::Debug);
         }
         #[cfg(not(debug_assertions))]
@@ -28,17 +29,18 @@ pub fn init_logger([q, v]: [u8; 2], log_path: &Path) {
                 .format_target(false)
                 .format_timestamp(None);
 
-            let level = cli_boilerplate_automation::bother::level_filter::from_qv(q, v);
+            let level = cba::bother::level_filter::from_qv(q, v);
 
             builder
                 .filter(Some(LIBRARY_FULL), level)
+                .filter(Some("cba"), level)
                 .filter(Some(BINARY_SHORT), level);
         }
     }
 
     log_path
         .parent()
-        .map(cli_boilerplate_automation::bs::create_dir);
+        .map(cba::bs::create_dir);
 
     if let Some(log_file) = OpenOptions::new()
         .truncate(true)

@@ -18,7 +18,7 @@ use paths::*;
 use start::*;
 use utils::*;
 
-use cli_boilerplate_automation::{
+use cba::{
     _dbg, bait::ResultExt, bog::BogOkExt, bring::split::split_whitespace_preserving_nesting, ebog,
 };
 use matchmaker::MatchError;

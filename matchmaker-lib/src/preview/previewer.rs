@@ -1,5 +1,5 @@
 use ansi_to_tui::IntoText;
-use cli_boilerplate_automation::broc::{CommandExt, EnvVars};
+use cba::broc::{CommandExt, EnvVars};
 use futures::FutureExt;
 use log::{debug, error, warn};
 use ratatui::text::{Line, Text};

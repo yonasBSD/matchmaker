@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::bait::TransformExt;
+use cba::bait::TransformExt;
 use ratatui::{
     layout::Constraint,
     style::Style,

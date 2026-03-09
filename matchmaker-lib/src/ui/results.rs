@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use cli_boilerplate_automation::bring::split::split_on_nesting;
+use cba::bring::split::split_on_nesting;
 use ratatui::{
     layout::{Alignment, Rect},
     style::{Color, Style, Stylize},

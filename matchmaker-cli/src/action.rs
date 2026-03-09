@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use cli_boilerplate_automation::{
+use cba::{
     bait::ResultExt, bring::split::split_whitespace_preserving_nesting, unwrap,
 };
 use log::error;

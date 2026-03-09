@@ -1,5 +1,5 @@
-use cli_boilerplate_automation::bath::shell_quote_impl;
-use cli_boilerplate_automation::unwrap;
+use cba::bath::shell_quote_impl;
+use cba::unwrap;
 use matchmaker::nucleo::Indexed;
 use matchmaker::render::MMState;
 use matchmaker::{ConfigMMInnerItem, ConfigMMItem};
@@ -104,7 +104,6 @@ fn process_key(
     state: &ConfigMMState<'_, '_>,
     item_override: Option<&ConfigMMInnerItem>,
 ) -> String {
-    log::info!("{key}");
     let mut key = key;
     let mut quote = true;
     let mut multi = false;
@@ -138,22 +137,12 @@ fn process_key(
             })
             .join(" ")
     } else {
-        if let Some(item) = item_override {
-            let val = get_val(key, item, state);
-            if quote {
-                shell_quote_impl(&val)
-            } else {
-                val.into_owned()
-            }
-        } else if let Some(item) = state.current_raw() {
-            let val = get_val(key, &item.inner, state);
-            if quote {
-                shell_quote_impl(&val)
-            } else {
-                val.into_owned()
-            }
+        let item = unwrap!(item_override.or_else(|| state.current_raw().map(|x| &x.inner)));
+        let val = get_val(key, item, state);
+        if quote {
+            shell_quote_impl(&val)
         } else {
-            String::new()
+            val.into_owned()
         }
     }
 }
@@ -165,37 +154,22 @@ fn get_val<'a>(
 ) -> Cow<'a, str> {
     if key == "!" {
         // current column
-        let col_idx = if key.is_empty() {
-            let cursor_byte = state
-                .picker_ui
-                .input
-                .byte_index(state.picker_ui.input.cursor() as usize);
-            Some(
-                state
-                    .picker_ui
-                    .worker
-                    .query
-                    .active_column_index(cursor_byte),
-            )
-        } else {
-            key.parse::<usize>().ok().or_else(|| {
-                state
-                    .picker_ui
-                    .worker
-                    .columns
-                    .iter()
-                    .position(|c| c.name.as_ref() == key)
-            })
-        };
+        let cursor_byte = state
+            .picker_ui
+            .input
+            .byte_index(state.picker_ui.input.cursor() as usize);
+        let idx = state
+            .picker_ui
+            .worker
+            .query
+            .active_column_index(cursor_byte);
 
-        if let Some(idx) = col_idx {
-            if let Some(col) = state.picker_ui.worker.columns.get(idx) {
-                let indexed = Indexed {
-                    index: 0,
-                    inner: item.clone(),
-                };
-                return col.format_text(&indexed).to_string().into();
-            }
+        if let Some(col) = state.picker_ui.worker.columns.get(idx) {
+            let indexed = Indexed {
+                index: 0,
+                inner: item.clone(),
+            };
+            return col.format_text(&indexed).to_string().into();
         }
         Cow::Borrowed("")
     } else {

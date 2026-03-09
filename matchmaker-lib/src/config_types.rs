@@ -1,6 +1,6 @@
 use std::fmt;
 
-use cli_boilerplate_automation::{
+use cba::{
     bird::one_or_many, define_restricted_wrapper, define_transparent_wrapper,
 };
 use ratatui::widgets::Borders;

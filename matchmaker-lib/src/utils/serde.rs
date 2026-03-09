@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::wbog;
+use cba::wbog;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::utils::string::resolve_escapes;

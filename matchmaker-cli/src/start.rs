@@ -11,7 +11,7 @@ use crate::{
     paths::last_key_path,
 };
 use crate::{config::Config, paths::default_config_path};
-use cli_boilerplate_automation::{
+use cba::{
     bait::{OptionExt, ResultExt},
     bo::{
         MapReaderError, load_type_or_default, map_chunks, map_reader_lines, read_to_chunks,
@@ -20,7 +20,7 @@ use cli_boilerplate_automation::{
     bog::BogOkExt,
     prints,
 };
-use cli_boilerplate_automation::{bo::load_type, broc::CommandExt};
+use cba::{bo::load_type, broc::CommandExt};
 use log::debug;
 use matchmaker::{
     ConfigInjector, MatchError, Matchmaker, OddEnds, PickOptions, SSS,
@@ -140,7 +140,7 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
     })
 }
 
-use cli_boilerplate_automation::wbog;
+use cba::wbog;
 use matchmaker::{Actions, binds::Trigger};
 use std::collections::HashMap;
 pub fn resolve_aliases(
