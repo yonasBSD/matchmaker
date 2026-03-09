@@ -243,13 +243,21 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     // reload handler
     let reload_formatter = cli_formatter.clone();
+    let default_reload = (!command.is_empty() && atty::is(atty::Stream::Stdin) || no_read)
+        .then_some(command.clone())
+        .unwrap_or_default();
+
     mm.register_interrupt_handler(Interrupt::Reload, move |state| {
         let injector = state.injector();
         let injector = IndexedInjector::new_globally_indexed(injector);
         let injector = SegmentedInjector::new(injector, splitter.clone());
         let injector = AnsiInjector::new(injector, preprocess);
 
-        let cmd = use_formatter(&reload_formatter, state, state.payload(), None);
+        let cmd = if !state.payload().is_empty() {
+            &use_formatter(&reload_formatter, state, state.payload(), None)
+        } else {
+            &default_reload
+        };
 
         if !cmd.is_empty() {
             let vars = state.make_env_vars();

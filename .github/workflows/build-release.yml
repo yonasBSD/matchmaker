@@ -59,17 +59,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish:
-      name: Publish to crates.io
-      runs-on: ubuntu-latest
-      needs: build
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
-        - name: Setup Rust
-          uses: dtolnay/rust-toolchain@stable
-        - name: Install cargo-workspaces
-          run: cargo install cargo-workspaces
-        - name: Publish
-          env:
-            CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_API_KEY }}
-          run: cargo workspaces publish --from-git
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-workspaces
+        run: cargo install cargo-workspaces
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_API_KEY }}
+        run: cargo workspaces publish --from-git

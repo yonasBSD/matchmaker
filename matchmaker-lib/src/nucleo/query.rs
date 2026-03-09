@@ -180,4 +180,17 @@ impl PickerQuery {
             .and_then(|name| self.column_names.iter().position(|c| c == name))
             .unwrap_or(self.primary_column)
     }
+
+    /// Sets the default column index.
+    ///
+    /// # Warning
+    /// This method does not check if the index exists.
+    pub fn with_default_column(mut self, index: usize) -> Self {
+        self.primary_column = index;
+        let primary_field = &self.column_names[self.primary_column];
+        self.column_ranges.clear();
+        self.column_ranges
+            .push((0..usize::MAX, Some(primary_field.clone())));
+        self
+    }
 }

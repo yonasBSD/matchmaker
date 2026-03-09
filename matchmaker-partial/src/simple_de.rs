@@ -15,7 +15,7 @@ pub struct SimpleDeserializer<'de> {
 
 pub fn deserialize<'de, T>(input: &'de [String]) -> Result<T, SimpleError>
 where
-    T: de::Deserialize<'de>,
+    T: de::Deserialize<'de> + std::fmt::Debug,
 {
     let mut de = SimpleDeserializer::from_slice(input);
     let value = T::deserialize(&mut de)?;
@@ -89,12 +89,16 @@ impl<'de> Deserializer<'de> for &mut SimpleDeserializer<'de> {
     {
         let remaining = self.input.len() - self.start;
 
-        let is_key_context = match self.consuming {
+        let no_sequences = match self.consuming {
             Some(Err(_fields)) => true,
             _ => false,
         };
 
-        if remaining > 1 && !is_key_context {
+        if remaining > 1 && !no_sequences {
+            return self.deserialize_seq(visitor);
+        }
+
+        if remaining == 0 {
             return self.deserialize_seq(visitor);
         }
 
@@ -326,7 +330,8 @@ impl<'de> SeqAccess<'de> for &mut SimpleDeserializer<'de> {
             return Ok(None);
         }
 
-        let val = self.with_sub(|s| seed.deserialize(s), None)?;
+        // prevent deserialize_any from deserializing sequences
+        let val = self.with_sub(|s| seed.deserialize(s), Err(&[][..]))?;
 
         if let Some(Ok(ref mut len)) = self.consuming {
             *len -= 1;

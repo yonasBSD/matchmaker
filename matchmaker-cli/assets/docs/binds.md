@@ -15,6 +15,8 @@ Standard key names and combinations are supported. Matchmaker uses a human-frien
 - **Modifiers**: `ctrl-`, `alt-`, `shift-`, `super-` (e.g., `ctrl-c`, `alt-enter`, `shift-up`).
 - **Combinations**: `ctrl-alt-del`.
 
+Get your key name with `mm --test-keys`.
+
 **Example:**
 `ctrl-s = "Select"` (Bind Ctrl+S to the Select action)
 
@@ -34,6 +36,7 @@ Mouse events can be bound with modifiers:
 Semantic aliases are abstract triggers that are resolved to physical keys at startup. They are prefixed with `::`.
 
 For example, if your configuration defines an alias `open = "enter"`, then:
+
 - A bind to `::open` will behave exactly like a bind to `enter`.
 - If you change the `open` alias to `alt-o`, all binds using `::open` automatically move to `alt-o`.
 
@@ -122,20 +125,25 @@ Actions are the operations performed when a trigger is activated.
 | `SetFooter(str)` | Set the footer text (pass empty to clear). |
 | `SetPrompt(str)` | Set the input prompt text.                 |
 | `SetStatus(str)` | Set the status line template.              |
-| `Overlay(idx)`   | Activate the UI overlay at index `idx`.    |
-| `Redraw`         | Force a complete UI redraw.                |
 
-### Programmable & System
+### Programmable
 
-| Action            | Description                                       |
-| ----------------- | ------------------------------------------------- |
-| `Execute(cmd)`    | Run a shell command and continue.                 |
-| `Become(cmd)`     | Replace Matchmaker with the specified command.    |
-| `Reload(cmd)`     | Reload items by running the specified command.    |
-| `Print(str)`      | Print the specified string to stdout on exit.     |
-| `Filtering(bool)` | Enable or disable query filtering.                |
-| `CycleSort`       | Cycle through result sorting modes.               |
-| `ReloadNext(idx)` | Reload using the next command in the reload list. |
+| Action         | Description                                    |
+| -------------- | ---------------------------------------------- |
+| `Execute(cmd)` | Run a shell command and continue.              |
+| `Become(cmd)`  | Replace Matchmaker with the specified command. |
+| `Reload(cmd)`  | Reload items by running the specified command. |
+| `Print(str)`   | Print the specified string to stdout on exit.  |
+
+### Other & Experimental
+
+| Action            | Description                                                           |
+| ----------------- | --------------------------------------------------------------------- |
+| `Filtering(bool)` | Enable or disable query filtering.                                    |
+| `CycleSort`       | Cycle through result sorting modes (`Full`/ `Mixed` / `None`).        |
+| `NextReload(idx)` | Reload using the next command in `matcher.start.additional_commands`. |
+| `Overlay(idx)`    | Activate the UI overlay at index `idx`.                               |
+| `Redraw`          | Force a complete UI redraw.                                           |
 
 ---
 

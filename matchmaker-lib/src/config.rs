@@ -49,6 +49,9 @@ pub struct WorkerConfig {
     pub columns: ColumnsConfig,
     /// How "stable" the results are. Higher values prioritize the initial ordering.
     pub sort_threshold: u32,
+    /// The name of the default column
+    #[partial(alias = "i")]
+    pub default_column: String,
 
     /// TODO: Enable raw mode where non-matching items are also displayed in a dimmed color.
     #[partial(alias = "r")]
@@ -80,7 +83,7 @@ pub struct StartConfig {
     /// Default command to execute when stdin is not being read.
     #[partial(alias = "cmd", alias = "x")]
     pub command: String,
-    /// (cli only) Additional command which can be cycled through using Action::ReloadNext
+    /// (cli only) Additional command which can be cycled through using Action::NextReload
     #[partial(alias = "ax")]
     pub additional_commands: Vec<String>,
     pub sync: bool,
@@ -336,7 +339,10 @@ pub struct ResultsConfig {
     // #[serde(deserialize_with = "transform_uppercase")]
     pub current_modifier: Modifier,
 
-    /// How the current_* styles are applied across the row.
+    /// How the styles are applied across the row:
+    /// Disjoint: Styles are applied per column.
+    /// Capped: The inactive styles are applied per row, and the active styles applied on the active column.
+    /// Full: Inactive column styles are ignored, the current style is applied on the current row.
     #[serde(deserialize_with = "camelcase_normalized")]
     pub row_connection_style: RowConnectionStyle,
 
@@ -387,7 +393,7 @@ impl Default for ResultsConfig {
             modifier: Default::default(),
             bg: Default::default(),
 
-            inactive_fg: Color::Blue,
+            inactive_fg: Default::default(),
             inactive_modifier: Modifier::DIM,
             inactive_bg: Default::default(),
 
@@ -830,6 +836,7 @@ pub struct ColumnsConfig {
     pub names: Vec<ColumnSetting>,
     /// Maximum number of columns to autogenerate when names is unspecified. Maximum of 16, minimum of 1.
     #[serde(deserialize_with = "bounded_usize::<_, 1, {crate::MAX_SPLITS}>")]
+    #[partial(alias = "mc")]
     max_columns: usize,
 }
 

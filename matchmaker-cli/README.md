@@ -14,7 +14,9 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 - Interactive preview supports color, scrolling, wrapping, multiple layouts, and even maximizing.
 - Most of the familiar actions from [fzf](https://github.com/junegunn/fzf), as well as several new ones[^12].
 - Mouse scrolling (results and preview)! Horizontal scrolling! Grapheme-aware input wrapping!
-- Column support: Split input lines into multiple columns, that you can individually filter on (with the following syntax: `%col query`).[^14]
+- Column support: Split input lines into multiple columns, that you can individually filter on (with the following syntax: `%col query`), hide, and highlight.[^14]
+- [Templating](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md): Define Execute/Preview/Output/Print actions based on the current item.
+- Dynamic UI: Preview offsets, styled status lines, responsive header tables and more.
 - Dynamically bind keys and modify the configuration.
 - `mm --last-key` gives you the last key that was pressed in a previous run of the program.[^13]
 - Available as a rust library to use in your own code.
@@ -27,7 +29,7 @@ On the way:
 
 [^11]: The benefits of a structured, hierarchical, global baseline configuration are many, including but not limited to the fact that toml strings make it much easier to bind keys to complex shell scripts.
 
-[^12]: Custom exit codes, select all (`CycleAll`), PageUp/Down, Show Help, Cycle columns (`ColumnNext`), Multiple input commands (`ReloadNext`), etc. ...
+[^12]: Custom exit codes, select all (`CycleAll`), PageUp/Down, Show Help, Cycle columns (`NextColumn`), Multiple input commands (`NextReload`), etc. ...
 
 [^13]: This is useful for when you want to write a shell script that dispatches different actions on the output of matchmaker based on the key that was pressed.
 
@@ -37,6 +39,8 @@ On the way:
 
 ```sh
 cargo install matchmaker-cli
+
+# or grab a release from the releases page.
 ```
 
 Pass it some items:

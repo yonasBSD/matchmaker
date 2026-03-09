@@ -106,7 +106,7 @@ impl DisplayUI {
         mut widths: Vec<u16>,
         col_spacing: u16,
     ) -> Table<'_> {
-        if self.text.is_empty() || widths.is_empty() {
+        if self.text.is_empty() && self.header.is_empty() || widths.is_empty() {
             return Table::default();
         }
 
@@ -170,10 +170,15 @@ impl DisplayUI {
         // add header cells
         if !self.header.is_empty() {
             // todo: support wrapping
-            rows.extend(self.header.iter().cloned().map(Row::new));
+            rows.extend(self.header.iter().map(|row| {
+                let cells: Vec<Cell> = row.iter().cloned().map(Cell::from).collect();
+                Row::new(cells)
+            }));
 
-            self.height += height;
+            self.height += self.header.len() as u16;
         }
+
+        log::debug!("{}", self.height);
 
         let widths = if self.single() {
             vec![Constraint::Percentage(100)]

@@ -33,7 +33,7 @@ pub enum MMAction {
     Filtering(Option<bool>),
     /// Cycle result sorting between None, Partial, and Full
     CycleSort,
-    ReloadNext(Option<usize>),
+    NextReload(Option<usize>),
 
     // set
     /// Set header
@@ -123,7 +123,7 @@ pub fn action_handler(
             // todo
         }
 
-        MMAction::ReloadNext(x) => {
+        MMAction::NextReload(x) => {
             let payload = match x {
                 None => {
                     additional_commands.1 =
@@ -134,7 +134,7 @@ pub fn action_handler(
                     if x < additional_commands.0.len() {
                         &additional_commands.0[x]
                     } else {
-                        error!("Index {x} is out of bounds for ReloadNext");
+                        error!("Index {x} is out of bounds for NextReload");
                         return;
                     }
                 }
@@ -231,7 +231,7 @@ enum_from_str_display! {
     ;
 
     options:
-    SetPrompt, SetHeader, SetFooter, SetStatus, Filtering, ReloadNext;
+    SetPrompt, SetHeader, SetFooter, SetStatus, Filtering, NextReload;
 
     lossy:
     ;

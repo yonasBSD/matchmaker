@@ -10,33 +10,26 @@
 - Add support for nucleo::Pattern in the matcher config
 - Adaptable percentage (higher on smaller)
 - better hr styling (dim etc.)
+- ExecuteSilent, ExecuteDetached.
+- The former is important in that it allows executing commands without breaking tui layout
+- vscroll has a bind but is not implemented in results
+- status/header click events
 
 # Previewer
+
 - Offload large previews to disk
 - Caching (?)
 - debouncing (?)
 
 # Perf
+
 - benchmarks
   - (what kinds of speed matter?)
 - https://github.com/saghen/frizbee
 
 # Columns
-- dynamically adjusting column hide/filtering
-  - formatter:
-  - {} to join all, with single quote wrap/escaping
-  - {=} to join all, without single quotes
-  - {..} to join together all *visible* column outputs
-  - {+} to output {} for each selected {}, concatenated by space
-  - {+=} the same, without single quote wrap/escape
-  - {!}/{+!}/{=!} current column content
-  - {col}/{+col}/{=col} specific column content
-  - {col1,col2}, {col1,..}: col slicing
 
-  - problems:
-    
-
-  - (fist: lowpri): execute: use of {*} in place of {+}: execute once for each selected
+- (fist: lowpri): execute: use of {\*} in place of {+}: execute once for each selected
 
 # Bugs
 

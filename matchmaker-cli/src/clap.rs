@@ -36,7 +36,7 @@ pub struct Cli {
     #[arg(long)]
     pub binds: bool,
     #[arg(long)]
-    pub format: bool,
+    pub template: bool,
 }
 
 impl Cli {
@@ -80,7 +80,7 @@ impl Cli {
             try_parse!("verbosity");
             try_parse!("options");
             try_parse!("binds");
-            try_parse!("format");
+            try_parse!("template");
 
             // Flags
             if [

@@ -511,7 +511,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
                         Action::ShowColumn(col_name) => {
                             if let Some(name) = col_name {
-                                if let Some(idx) = worker.columns.iter().position(|c| *c.name == name) {
+                                if let Some(idx) =
+                                    worker.columns.iter().position(|c| *c.name == name)
+                                {
                                     if idx < results.hidden_columns.len() {
                                         results.hidden_columns[idx] = false;
                                     }

@@ -111,7 +111,7 @@
 [matcher]
     trim                = true
     columns.split       = '\s+'
-    columns.max_columns = 5
+    columns.max_columns = 8
     sort_threshold      = 1
 
 [start]

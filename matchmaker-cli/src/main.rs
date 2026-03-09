@@ -86,7 +86,6 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
             };
 
         log::trace!("{parts:?}");
-
         _dbg!(&path, &parts);
         partial
             .set(path.as_slice(), &parts)
@@ -107,8 +106,8 @@ fn display_doc(cli: &Cli) {
     if cli.binds {
         md.push_str(include_str!("../assets/docs/binds.md"));
     }
-    if cli.format {
-        md.push_str(include_str!("../assets/docs/format.md"));
+    if cli.template {
+        md.push_str(include_str!("../assets/docs/template.md"));
     }
 
     if !md.is_empty() {

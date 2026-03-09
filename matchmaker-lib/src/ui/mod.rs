@@ -172,9 +172,13 @@ impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
         let cursor_byte = self.input.byte_index(self.input.cursor() as usize);
         let active_column = self.worker.query.active_column_index(cursor_byte);
 
-        let table =
-            self.results
-                .make_table(active_column, &mut self.worker, &mut self.selector, self.matcher, click);
+        let table = self.results.make_table(
+            active_column,
+            &mut self.worker,
+            &mut self.selector,
+            self.matcher,
+            click,
+        );
         let width = self.results.table_width();
         (table, width)
     }

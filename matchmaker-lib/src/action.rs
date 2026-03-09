@@ -346,11 +346,11 @@ enum_from_str_display!(
     ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, Cancel, Redraw, NextColumn, PrevColumn;
 
     tuples:
-    Execute, Become, Reload, Preview,
+    Execute, Become, Preview,
     SetQuery, Pos, QueryPos, SwitchColumn;
 
     defaults:
-    (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new()), (PreviewScroll, 1), (PreviewHScroll, 1), (HScroll, 0), (VScroll, 0);
+    (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new()), (Reload, String::new()), (PreviewScroll, 1), (PreviewHScroll, 1), (HScroll, 0), (VScroll, 0);
 
     options:
     SwitchPreview, SetPreview, ToggleColumn, ShowColumn

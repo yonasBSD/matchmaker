@@ -209,9 +209,7 @@ impl Previewer {
                                     leftover = rest.to_vec();
                                 }
 
-                                if !leftover.is_empty()
-                                    && !lines.is_expired(&guard)
-                                {
+                                if !leftover.is_empty() && !lines.is_expired(&guard) {
                                     match leftover.into_text() {
                                         Ok(text) => {
                                             for line in text {
