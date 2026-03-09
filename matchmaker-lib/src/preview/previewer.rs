@@ -5,7 +5,7 @@ use log::{debug, error, warn};
 use ratatui::text::{Line, Text};
 use std::io::BufReader;
 use std::process::{Child, Command, Stdio};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -41,8 +41,6 @@ pub struct Previewer {
     /// and which the viewer can toggle after receiving the current state
     changed: Arc<AtomicBool>,
 
-    /// Incremented on every new run / kill to invalidate old feeders
-    version: Arc<AtomicUsize>,
     paused: bool,
     /// Maintain a queue of child processes to improve cleanup reliability
     procs: Vec<Child>,
@@ -63,7 +61,6 @@ impl Previewer {
             lines: AppendOnly::new(),
             string: Default::default(),
             changed: Default::default(),
-            version: Arc::new(AtomicUsize::new(0)),
             paused: false,
 
             procs: Vec::new(),
@@ -153,9 +150,8 @@ impl Previewer {
                             self.changed.store(true, Ordering::Relaxed);
 
                             let lines = self.lines.clone();
+                            let guard = self.lines.read();
                             let cmd = cmd.clone();
-                            let version = self.version.clone();
-                            let _version = version.load(Ordering::Acquire);
 
                             // false => needs refresh (i.e. invalid utf-8)
                             let handle = tokio::spawn(async move {
@@ -187,21 +183,21 @@ impl Previewer {
                                         Ok(text) => {
                                             for line in text {
                                                 // re-check before pushing
-                                                if version.load(Ordering::Acquire) != _version {
+                                                if lines.is_expired(&guard) {
                                                     return true;
                                                 }
-                                                lines.push(line);
+                                                guard.push(line);
                                             }
                                         }
                                         Err(e) => {
                                             if self.config.try_lossy {
                                                 for bytes in valid_bytes.split(|b| *b == b'\n') {
-                                                    if version.load(Ordering::Acquire) != _version {
+                                                    if lines.is_expired(&guard) {
                                                         return true;
                                                     }
                                                     let line =
                                                         String::from_utf8_lossy(bytes).into_owned();
-                                                    lines.push(Line::from(line));
+                                                    guard.push(Line::from(line));
                                                 }
                                             } else {
                                                 error!("Error displaying {cmd}: {:?}", e);
@@ -214,26 +210,26 @@ impl Previewer {
                                 }
 
                                 if !leftover.is_empty()
-                                    && version.load(Ordering::Acquire) == _version
+                                    && !lines.is_expired(&guard)
                                 {
                                     match leftover.into_text() {
                                         Ok(text) => {
                                             for line in text {
-                                                if version.load(Ordering::Acquire) != _version {
+                                                if lines.is_expired(&guard) {
                                                     return true;
                                                 }
-                                                lines.push(line);
+                                                guard.push(line);
                                             }
                                         }
                                         Err(e) => {
                                             if self.config.try_lossy {
                                                 for bytes in leftover.split(|b| *b == b'\n') {
-                                                    if version.load(Ordering::Acquire) != _version {
+                                                    if lines.is_expired(&guard) {
                                                         return true;
                                                     }
                                                     let line =
                                                         String::from_utf8_lossy(bytes).into_owned();
-                                                    lines.push(Line::from(line));
+                                                    guard.push(Line::from(line));
                                                 }
                                             } else {
                                                 error!("Error displaying {cmd}: {:?}", e);
@@ -264,9 +260,6 @@ impl Previewer {
 
     fn dispatch_kill(&mut self) {
         if let Some((mut child, old)) = self.current.take() {
-            // invalidate all existing feeders
-            self.version.fetch_add(1, Ordering::AcqRel);
-
             let _ = child.kill();
             self.procs.push(child);
             let mut old = Box::pin(old); // pin it to heap

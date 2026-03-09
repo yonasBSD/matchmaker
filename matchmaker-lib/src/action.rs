@@ -41,9 +41,14 @@ pub enum Action<A: ActionExt = NullActionExt> {
     PageDown,
     // TODO
     PageUp,
-    /// Horizontally scroll (the active column of) the results.
+    /// Horizontally scroll (the active column of) the current result.
     /// 0 to reset.
     HScroll(i8),
+    /// Vertically scroll the current result.
+    /// 0 to reset.
+    ///
+    /// (Rarely useful, unless you have an extremely long result whose wrap overflows.)
+    VScroll(i8),
 
     // Preview
     /// Cycle preview layouts
@@ -83,14 +88,16 @@ pub enum Action<A: ActionExt = NullActionExt> {
     /// Jump between start, end, last, and initial locations. (unimplemented).
     PreviewJump,
 
-    // Columns
-    /// Set active column
-    Column(usize),
     /// Cycle columns
-    CycleColumn,
-    // todo
-    ColumnLeft,
-    ColumnRight,
+    NextColumn,
+    /// Cycle columns backwards
+    PrevColumn,
+    /// Switch to a specific column
+    SwitchColumn(String),
+    /// Toggle visibility of a column
+    ToggleColumn(Option<String>),
+    /// Unhide a column, or all columns if None
+    ShowColumn(Option<String>),
     ScrollLeft,
     ScrollRight,
 
@@ -336,19 +343,17 @@ enum_from_str_display!(
 
     PreviewHalfPageUp, PreviewHalfPageDown,
 
-    CycleColumn, ColumnLeft, ColumnRight,
-
-    ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, Cancel, Redraw;
+    ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, Cancel, Redraw, NextColumn, PrevColumn;
 
     tuples:
     Execute, Become, Reload, Preview,
-    SetQuery, Column, Pos, QueryPos;
+    SetQuery, Pos, QueryPos, SwitchColumn;
 
     defaults:
-    (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new()), (PreviewScroll, 1), (PreviewHScroll, 1), (HScroll, 0);
+    (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new()), (PreviewScroll, 1), (PreviewHScroll, 1), (HScroll, 0), (VScroll, 0);
 
     options:
-    SwitchPreview, SetPreview
+    SwitchPreview, SetPreview, ToggleColumn, ShowColumn
 );
 
 macro_rules! enum_from_str_display {
@@ -479,5 +484,21 @@ impl<A: ActionExt> FromIterator<Action<A>> for Actions<A> {
         let mut inner = ArrayVec::<Action<A>, MAX_ACTIONS>::new();
         inner.extend(iter);
         Actions(inner)
+    }
+}
+
+use std::ops::{Deref, DerefMut};
+
+impl<A: ActionExt> Deref for Actions<A> {
+    type Target = ArrayVec<Action<A>, MAX_ACTIONS>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<A: ActionExt> DerefMut for Actions<A> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }

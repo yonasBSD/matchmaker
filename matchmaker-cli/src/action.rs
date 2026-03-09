@@ -1,9 +1,15 @@
 use std::str::FromStr;
 
-use cli_boilerplate_automation::{bait::ResultExt, bring::split::split_whitespace_preserving_nesting, unwrap};
+use cli_boilerplate_automation::{
+    bait::ResultExt, bring::split::split_whitespace_preserving_nesting, unwrap,
+};
+use log::error;
 use matchmaker::{
-    Action, ConfigMMInnerItem, ConfigMMItem, event::BindSender, message::BindDirective,
-    nucleo::Span, ui::StatusUI,
+    Action, ConfigMMInnerItem, ConfigMMItem,
+    event::BindSender,
+    message::{BindDirective, Interrupt},
+    nucleo::Span,
+    ui::StatusUI,
 };
 
 pub type MMState<'a, 'b> = matchmaker::render::MMState<'a, 'b, ConfigMMItem, ConfigMMInnerItem>;
@@ -23,10 +29,9 @@ pub enum MMAction {
     // state
     /// Toggle refiltering of results by query.
     Filtering(Option<bool>),
-    /// Toggle visibility of column (TODO)
-    ToggleColumn(Option<usize>),
     /// Cycle result sorting between None, Partial, and Full
     CycleSort,
+    ReloadNext(Option<usize>),
 
     // set
     /// Set header
@@ -49,13 +54,17 @@ pub enum MMAction {
 
 pub struct ActionContext {
     pub bind_tx: BindSender<MMAction>,
+    pub additional_commands: (Vec<String>, usize),
 }
 
 #[allow(unused)]
 pub fn action_handler(
     a: MMAction,
     state: &mut MMState<'_, '_>,
-    ActionContext { bind_tx }: &mut ActionContext,
+    ActionContext {
+        bind_tx,
+        additional_commands,
+    }: &mut ActionContext,
 ) {
     match a {
         // state
@@ -77,9 +86,6 @@ pub fn action_handler(
                 state.filtering = !state.filtering
             }
         }
-        MMAction::ToggleColumn(s) => {
-            // todo
-        }
 
         // history
         MMAction::HistoryUp => {
@@ -87,6 +93,25 @@ pub fn action_handler(
         }
         MMAction::HistoryDown => {
             // todo
+        }
+
+        MMAction::ReloadNext(x) => {
+            let payload = match x {
+                None => {
+                    additional_commands.1 =
+                        (additional_commands.1 + 1) % additional_commands.0.len();
+                    &additional_commands.0[additional_commands.1]
+                }
+                Some(x) => {
+                    if x < additional_commands.0.len() {
+                        &additional_commands.0[x]
+                    } else {
+                        error!("Index {x} is out of bounds for ReloadNext");
+                        return;
+                    }
+                }
+            };
+            state.set_interrupt(Interrupt::Reload, payload.clone());
         }
 
         // binds
@@ -178,7 +203,7 @@ enum_from_str_display! {
     ;
 
     options:
-    SetPrompt, SetHeader, SetFooter, SetStatus, ToggleColumn, Filtering;
+    SetPrompt, SetHeader, SetFooter, SetStatus, Filtering, ReloadNext;
 
     lossy:
     ;

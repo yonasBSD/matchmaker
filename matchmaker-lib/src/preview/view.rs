@@ -20,7 +20,7 @@ impl Preview {
         if let Some(s) = unwrap!(self.string.lock().prefix("Previewer panicked")._elog()).as_ref() {
             s.clone()
         } else {
-            let output = unwrap!(self.lines.read().prefix("Previewer panicked")._elog());
+            let output = self.lines.read();
             Text::from_iter(output.iter().map(|(_, line)| line.clone()))
         }
     }
@@ -29,7 +29,7 @@ impl Preview {
         if let Some(s) = unwrap!(self.string.lock().prefix("Previewer panicked")._elog()).as_ref() {
             s.height()
         } else {
-            let output = unwrap!(self.lines.read().prefix("Previewer panicked")._elog());
+            let output = self.lines.read();
             output.iter().count()
         }
     }
@@ -38,7 +38,7 @@ impl Preview {
         if let Some(s) = unwrap!(self.string.lock().prefix("Previewer panicked")._elog()).as_ref() {
             s.height() == 0
         } else {
-            let output = unwrap!(self.lines.read().prefix("Previewer panicked")._elog());
+            let output = self.lines.read();
             output.iter().next().is_none()
         }
     }
