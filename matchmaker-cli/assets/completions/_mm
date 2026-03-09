@@ -25,6 +25,7 @@ _mm() {
 '(-q)*-v[Increase the verbosity level]' \
 '--options[Display options doc]' \
 '--binds[]' \
+'--format[]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0

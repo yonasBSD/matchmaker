@@ -8,4 +8,5 @@ complete -c mm -s q -d 'Reduce the verbosity level'
 complete -c mm -s v -d 'Increase the verbosity level'
 complete -c mm -l options -d 'Display options doc'
 complete -c mm -l binds
+complete -c mm -l format
 complete -c mm -s h -l help -d 'Print help'

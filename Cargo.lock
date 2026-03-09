@@ -1155,6 +1155,7 @@ dependencies = [
  "matchmaker-lib",
  "matchmaker-partial",
  "matchmaker-partial-macros",
+ "regex",
  "serde",
  "strum",
  "strum_macros",

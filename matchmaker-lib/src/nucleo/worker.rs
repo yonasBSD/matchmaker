@@ -56,12 +56,12 @@ impl<T> Column<T> {
         self
     }
 
-    pub(super) fn format<'a>(&self, item: &'a T) -> Text<'a> {
+    pub fn format<'a>(&self, item: &'a T) -> Text<'a> {
         (self.format)(item)
     }
 
     // Note: the characters should match the output of [`Self::format`]
-    pub(super) fn format_text<'a>(&self, item: &'a T) -> Cow<'a, str> {
+    pub fn format_text<'a>(&self, item: &'a T) -> Cow<'a, str> {
         Cow::Owned(text_to_string(&(self.format)(item)))
     }
 }
@@ -74,7 +74,7 @@ where
     T: SSS,
 {
     /// The inner `Nucleo` fuzzy matcher.
-    pub(crate) nucleo: nucleo::Nucleo<T>,
+    pub nucleo: nucleo::Nucleo<T>,
     /// The last pattern that was matched against.
     pub query: PickerQuery,
     /// A pre-allocated buffer used to collect match indices when fetching the results

@@ -22,7 +22,6 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 On the way:
 
 - Matching with [frizbee](https://github.com/saghen/frizbee), a faster, typo-resistant matching algorithm.
-- Full column support: highlight, focus, and hide.
 
 [^10]: Sample configurations are on the roadmap, and contributions are very welcome!
 

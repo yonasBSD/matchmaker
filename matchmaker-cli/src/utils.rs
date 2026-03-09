@@ -1,4 +1,4 @@
-use crate::clap::BINARY_FULL;
+use crate::clap::{BINARY_SHORT, LIBRARY_FULL};
 use cli_boilerplate_automation::{
     bait::ResultExt,
     bog::{self, BogOkExt},
@@ -18,7 +18,8 @@ pub fn init_logger([q, v]: [u8; 2], log_path: &Path) {
         {
             builder
                 .filter(None, log::LevelFilter::Info)
-                .filter(Some(BINARY_FULL), log::LevelFilter::Debug);
+                .filter(Some(LIBRARY_FULL), log::LevelFilter::Debug)
+                .filter(Some(BINARY_SHORT), log::LevelFilter::Debug);
         }
         #[cfg(not(debug_assertions))]
         {
@@ -29,7 +30,9 @@ pub fn init_logger([q, v]: [u8; 2], log_path: &Path) {
 
             let level = cli_boilerplate_automation::bother::level_filter::from_qv(q, v);
 
-            builder.filter(Some(BINARY_FULL), level);
+            builder
+                .filter(Some(LIBRARY_FULL), level)
+                .filter(Some(BINARY_SHORT), level);
         }
     }
 

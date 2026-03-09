@@ -12,6 +12,8 @@ use matchmaker::{
     ui::StatusUI,
 };
 
+use matchmaker::preview::AppendOnly;
+
 pub type MMState<'a, 'b> = matchmaker::render::MMState<'a, 'b, ConfigMMItem, ConfigMMInnerItem>;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -43,6 +45,9 @@ pub enum MMAction {
     /// Set status
     SetStatus(Option<String>),
 
+    /// Accept current selection and print using output_template
+    Accept,
+
     // Unimplemented
     /// History up (TODO)
     HistoryUp,
@@ -55,6 +60,9 @@ pub enum MMAction {
 pub struct ActionContext {
     pub bind_tx: BindSender<MMAction>,
     pub additional_commands: (Vec<String>, usize),
+    pub output_template: Option<String>,
+    pub print_handle: AppendOnly<String>,
+    pub output_separator: String,
 }
 
 #[allow(unused)]
@@ -64,9 +72,29 @@ pub fn action_handler(
     ActionContext {
         bind_tx,
         additional_commands,
+        output_template,
+        print_handle,
+        output_separator,
     }: &mut ActionContext,
 ) {
     match a {
+        MMAction::Accept => {
+            let repeat = |s: String| {
+                if atty::is(atty::Stream::Stdout) {
+                    print_handle.push(s);
+                } else {
+                    print!("{}{}", s, output_separator);
+                }
+            };
+
+            if let Some(template) = output_template {
+                crate::formatter::format_cli(state, template, Some(&repeat));
+            } else {
+                state.map_selected_to_vec(|x| repeat(x.to_cow().to_string()));
+            }
+
+            state.should_quit_nomatch = true;
+        }
         // state
         MMAction::CycleSort => {
             #[cfg(feature = "experimental")]
@@ -193,7 +221,7 @@ enum_from_str_display! {
     MMAction;
 
     units:
-    CycleSort, HistoryUp, HistoryDown;
+    CycleSort, HistoryUp, HistoryDown, Accept;
 
 
     tuples:

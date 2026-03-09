@@ -99,7 +99,7 @@
     "ctrl-shift-/"     = "CyclePreview"     # ctrl-shift-/
 
     # Columns
-    "ctrl-." = "ColumnNext"
+    "ctrl-." = "NextColumn"
 
     "ctrl-t"    = "Execute(echo ----; read v; echo $v; echo ----)"
     "ctrl-l"    = "Execute(eval $FZF_PREVIEW_COMMAND | $PAGER)"

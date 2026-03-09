@@ -56,16 +56,15 @@ pub struct Matchmaker<T: SSS, S: Selection = T> {
 // ----------- MAIN -----------------------
 
 pub struct OddEnds {
-    pub formatter: Arc<RenderFn<ConfigMMItem>>,
     pub splitter: SplitterFn<Either<String, Text<'static>>>,
     pub hidden_columns: Vec<bool>,
 }
 
 pub type ConfigInjector = AnsiInjector<
-    SegmentedInjector<
-        Either<String, Text<'static>>,
-        IndexedInjector<Segmented<Either<String, Text<'static>>>, WorkerInjector<ConfigMMItem>>,
-    >,
+SegmentedInjector<
+Either<String, Text<'static>>,
+IndexedInjector<Segmented<Either<String, Text<'static>>>, WorkerInjector<ConfigMMItem>>,
+>,
 >;
 pub type ConfigMatchmaker = Matchmaker<ConfigMMItem, Segmented<Either<String, Text<'static>>>>;
 pub type ConfigMMInnerItem = Segmented<Either<String, Text<'static>>>;
@@ -88,13 +87,13 @@ impl ConfigMatchmaker {
             Split::Delimiter(_) | Split::Regexes(_) => {
                 let names: Vec<Arc<str>> = if cc.names.is_empty() {
                     (0..cc.max_cols())
-                        .map(|n| Arc::from(n.to_string()))
-                        .collect()
+                    .map(|n| Arc::from(n.to_string()))
+                    .collect()
                 } else {
                     cc.names
-                        .iter()
-                        .map(|s| Arc::from(s.name.as_str()))
-                        .collect()
+                    .iter()
+                    .map(|s| Arc::from(s.name.as_str()))
+                    .collect()
                 };
                 Worker::new_indexable(names)
             }
@@ -158,7 +157,6 @@ impl ConfigMatchmaker {
 
         let event_handlers = EventHandlers::new();
         let interrupt_handlers = InterruptHandlers::new();
-        let formatter = Arc::new(worker.default_format_fn::<true>(|item| item.to_cow()));
 
         let new = Matchmaker {
             worker,
@@ -171,7 +169,6 @@ impl ConfigMatchmaker {
         };
 
         let misc = OddEnds {
-            formatter,
             splitter,
             hidden_columns,
         };
@@ -211,7 +208,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     /// Register a handler to listen on [`Event`]s
     pub fn register_event_handler<F>(&mut self, event: Event, handler: F)
     where
-        F: Fn(&mut MMState<'_, '_, T, S>, &Event) + 'static,
+    F: Fn(&mut MMState<'_, '_, T, S>, &Event) + 'static,
     {
         let boxed = Box::new(handler);
         self.register_boxed_event_handler(event, boxed);
@@ -227,7 +224,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     /// Register a handler to listen on [`Interrupt`]s
     pub fn register_interrupt_handler<F>(&mut self, interrupt: Interrupt, handler: F)
     where
-        F: Fn(&mut MMState<'_, '_, T, S>) + 'static,
+    F: Fn(&mut MMState<'_, '_, T, S>) + 'static,
     {
         let boxed = Box::new(handler);
         self.register_boxed_interrupt_handler(interrupt, boxed);
@@ -259,416 +256,450 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             return Ok(self
                 .selector
                 .identify_to_vec([self.worker.get_nth(0).unwrap()]));
-        }
-
-        let mut event_loop = if let Some(e) = builder.event_loop {
-            e
-        } else if let Some(binds) = builder.binds {
-            EventLoop::with_binds(binds).with_tick_rate(self.render_config.tick_rate())
-        } else {
-            EventLoop::new()
-        };
-
-        let mut wait = false;
-        if let Some(path) = self.exit_config.last_key_path.clone()
-            && !path.is_empty()
-        {
-            event_loop.record_last_key(path);
-            wait = true;
-        }
-
-        let preview = match previewer {
-            Some(Either::Left(view)) => Some(view),
-            Some(Either::Right(mut previewer)) => {
-                let view = previewer.view();
-                previewer.connect_controller(event_loop.controller());
-
-                tokio::spawn(async move {
-                    let _ = previewer.run().await;
-                });
-
-                Some(view)
             }
-            _ => None,
-        };
 
-        let (render_tx, render_rx) = builder
+            let mut event_loop = if let Some(e) = builder.event_loop {
+                e
+            } else if let Some(binds) = builder.binds {
+                EventLoop::with_binds(binds).with_tick_rate(self.render_config.tick_rate())
+            } else {
+                EventLoop::new()
+            };
+
+            let mut wait = false;
+            if let Some(path) = self.exit_config.last_key_path.clone()
+            && !path.is_empty()
+            {
+                event_loop.record_last_key(path);
+                wait = true;
+            }
+
+            let preview = match previewer {
+                Some(Either::Left(view)) => Some(view),
+                Some(Either::Right(mut previewer)) => {
+                    let view = previewer.view();
+                    previewer.connect_controller(event_loop.controller());
+
+                    tokio::spawn(async move {
+                        let _ = previewer.run().await;
+                    });
+
+                    Some(view)
+                }
+                _ => None,
+            };
+
+            let (render_tx, render_rx) = builder
             .channel
             .unwrap_or_else(tokio::sync::mpsc::unbounded_channel);
-        event_loop.add_tx(render_tx.clone());
+            event_loop.add_tx(render_tx.clone());
 
-        let mut tui =
+            let mut tui =
             tui::Tui::new(self.tui_config).map_err(|e| MatchError::TUIError(e.to_string()))?;
-        tui.enter()
+            tui.enter()
             .map_err(|e| MatchError::TUIError(e.to_string()))?;
 
-        // important to start after tui
-        let event_controller = event_loop.controller();
-        let event_loop_handle = tokio::spawn(async move {
-            let _ = event_loop.run().await;
-        });
-        log::debug!("event loop started");
+            // important to start after tui
+            let event_controller = event_loop.controller();
+            let event_loop_handle = tokio::spawn(async move {
+                let _ = event_loop.run().await;
+            });
+            log::debug!("event loop started");
 
-        let overlay_ui = if builder.overlays.is_empty() {
-            None
-        } else {
-            Some(OverlayUI::new(
-                builder.overlays.into_boxed_slice(),
-                overlay_config.unwrap_or_default(),
-            ))
-        };
+            let overlay_ui = if builder.overlays.is_empty() {
+                None
+            } else {
+                Some(OverlayUI::new(
+                    builder.overlays.into_boxed_slice(),
+                    overlay_config.unwrap_or_default(),
+                ))
+            };
 
-        // initial redraw to clear artifacts,
-        tui.redraw();
+            // initial redraw to clear artifacts,
+            tui.redraw();
 
-        let matcher = if let Some(matcher) = builder.matcher {
-            matcher
-        } else {
-            &mut nucleo::Matcher::new(nucleo::Config::DEFAULT)
-        };
+            let matcher = if let Some(matcher) = builder.matcher {
+                matcher
+            } else {
+                &mut nucleo::Matcher::new(nucleo::Config::DEFAULT)
+            };
 
-        let (ui, picker, footer, preview) = UI::new(
-            self.render_config,
-            matcher,
-            self.worker,
-            self.selector,
-            preview,
-            &mut tui,
-            hidden_columns,
-        );
+            let (ui, picker, footer, preview) = UI::new(
+                self.render_config,
+                matcher,
+                self.worker,
+                self.selector,
+                preview,
+                &mut tui,
+                hidden_columns,
+            );
 
-        let ret = render::render_loop(
-            ui,
-            picker,
-            footer,
-            preview,
-            tui,
-            overlay_ui,
-            self.exit_config,
-            render_rx,
-            event_controller,
-            (self.event_handlers, self.interrupt_handlers),
-            ext_handler,
-            ext_aliaser,
-            initializer,
-            #[cfg(feature = "bracketed-paste")]
-            paste_handler,
-        )
-        .await;
+            let ret = render::render_loop(
+                ui,
+                picker,
+                footer,
+                preview,
+                tui,
+                overlay_ui,
+                self.exit_config,
+                render_rx,
+                event_controller,
+                (self.event_handlers, self.interrupt_handlers),
+                ext_handler,
+                ext_aliaser,
+                initializer,
+                #[cfg(feature = "bracketed-paste")]
+                paste_handler,
+            )
+            .await;
 
-        if wait {
-            let _ = event_loop_handle.await;
-            log::debug!("event loop finished");
-        }
+            if wait {
+                let _ = event_loop_handle.await;
+                log::debug!("event loop finished");
+            }
 
-        ret
-    }
-
-    pub async fn pick_default(self) -> Result<Vec<S>> {
-        self.pick::<NullActionExt>(PickOptions::new()).await
-    }
-}
-
-#[ext(MatchResultExt)]
-impl<T> Result<T> {
-    /// Return the first element
-    pub fn first<S>(self) -> Result<S>
-    where
-        T: IntoIterator<Item = S>,
-    {
-        match self {
-            Ok(v) => v.into_iter().next().ok_or(MatchError::NoMatch),
-            Err(e) => Err(e),
-        }
-    }
-
-    /// Handle [`MatchError::Abort`] using [`std::process::exit`]
-    pub fn abort(self) -> Result<T> {
-        match self {
-            Err(MatchError::Abort(x)) => std::process::exit(x),
-            _ => self,
-        }
-    }
-}
-
-// --------- BUILDER -------------
-
-/// Returns what should be pushed to input
-pub type PasteHandler<T, S> =
-    Box<dyn FnMut(String, &MMState<'_, '_, T, S>) -> String + Send + Sync + 'static>;
-
-pub type ActionExtHandler<T, S, A> =
-    Box<dyn FnMut(A, &mut MMState<'_, '_, T, S>) + Send + Sync + 'static>;
-
-pub type ActionAliaser<T, S, A> =
-    Box<dyn FnMut(Action<A>, &mut MMState<'_, '_, T, S>) -> Actions<A> + Send + Sync + 'static>;
-
-pub type Initializer<T, S> = Box<dyn FnOnce(&mut MMState<'_, '_, T, S>) + Send + Sync + 'static>;
-
-/// Used to configure [`Matchmaker::pick`] with additional options.
-pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
-    matcher: Option<&'a mut nucleo::Matcher>,
-    matcher_config: nucleo::Config,
-
-    event_loop: Option<EventLoop<A>>,
-    binds: Option<BindMap<A>>,
-
-    ext_handler: Option<ActionExtHandler<T, S, A>>,
-    ext_aliaser: Option<ActionAliaser<T, S, A>>,
-    #[cfg(feature = "bracketed-paste")]
-    paste_handler: Option<PasteHandler<T, S>>,
-
-    overlays: Vec<Box<dyn Overlay<A = A>>>,
-    overlay_config: Option<OverlayConfig>,
-    previewer: Option<Either<Preview, Previewer>>,
-
-    hidden_columns: Vec<bool>,
-
-    // Initializing code, i.e. to setup state.
-    initializer: Option<Initializer<T, S>>,
-    pub channel: Option<(
-        RenderSender<A>,
-        tokio::sync::mpsc::UnboundedReceiver<crate::message::RenderCommand<A>>,
-    )>,
-}
-
-impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
-    pub const fn new() -> Self {
-        Self {
-            matcher: None,
-            event_loop: None,
-            previewer: None,
-            binds: None,
-            matcher_config: nucleo::Config::DEFAULT,
-            ext_handler: None,
-            ext_aliaser: None,
-            #[cfg(feature = "bracketed-paste")]
-            paste_handler: None,
-            overlay_config: None,
-            overlays: Vec::new(),
-            channel: None,
-            hidden_columns: Vec::new(),
-            initializer: None,
-        }
-    }
-
-    pub fn with_binds(binds: BindMap<A>) -> Self {
-        let mut ret = Self::new();
-        ret.binds = Some(binds);
-        ret
-    }
-
-    pub fn with_matcher(matcher: &'a mut nucleo::Matcher) -> Self {
-        let mut ret = Self::new();
-        ret.matcher = Some(matcher);
-        ret
-    }
-
-    pub fn binds(mut self, binds: BindMap<A>) -> Self {
-        self.binds = Some(binds);
-        self
-    }
-
-    pub fn event_loop(mut self, event_loop: EventLoop<A>) -> Self {
-        self.event_loop = Some(event_loop);
-        self
-    }
-
-    /// Use the given [`Previewer`] to provide a [`Preview`].
-    /// # Example
-    /// See [`make_previewer`] for how to create one.
-    pub fn previewer(mut self, previewer: Previewer) -> Self {
-        self.previewer = Some(Either::Right(previewer));
-        self
-    }
-
-    /// Set a [`Preview`].
-    /// Overrides [`Matchmaker::connect_preview`].
-    pub fn preview(mut self, preview: Preview) -> Self {
-        self.previewer = Some(Either::Left(preview));
-        self
-    }
-
-    pub fn matcher(mut self, matcher_config: nucleo::Config) -> Self {
-        self.matcher_config = matcher_config;
-        self
-    }
-
-    pub fn hidden_columns(mut self, hidden_columns: Vec<bool>) -> Self {
-        self.hidden_columns = hidden_columns;
-        self
-    }
-
-    pub fn ext_handler<F>(mut self, handler: F) -> Self
-    where
-        F: FnMut(A, &mut MMState<'_, '_, T, S>) + Send + Sync + 'static,
-    {
-        self.ext_handler = Some(Box::new(handler));
-        self
-    }
-
-    pub fn ext_aliaser<F>(mut self, aliaser: F) -> Self
-    where
-        F: FnMut(Action<A>, &mut MMState<'_, '_, T, S>) -> Actions<A> + Send + Sync + 'static,
-    {
-        self.ext_aliaser = Some(Box::new(aliaser));
-        self
-    }
-
-    pub fn initializer<F>(mut self, aliaser: F) -> Self
-    where
-        F: FnOnce(&mut MMState<'_, '_, T, S>) + Send + Sync + 'static,
-    {
-        self.initializer = Some(Box::new(aliaser));
-        self
-    }
-
-    #[cfg(feature = "bracketed-paste")]
-    pub fn paste_handler<F>(mut self, handler: F) -> Self
-    where
-        F: FnMut(String, &MMState<'_, '_, T, S>) -> String + Send + Sync + 'static,
-    {
-        self.paste_handler = Some(Box::new(handler));
-        self
-    }
-
-    pub fn overlay<O>(mut self, overlay: O) -> Self
-    where
-        O: Overlay<A = A> + 'static,
-    {
-        self.overlays.push(Box::new(overlay));
-        self
-    }
-
-    pub fn overlay_config(mut self, overlay: OverlayConfig) -> Self {
-        self.overlay_config = Some(overlay);
-        self
-    }
-
-    pub fn render_tx(&mut self) -> RenderSender<A> {
-        if let Some((s, _)) = &self.channel {
-            s.clone()
-        } else {
-            let channel = tokio::sync::mpsc::unbounded_channel();
-            let ret = channel.0.clone();
-            self.channel = Some(channel);
             ret
         }
+
+        pub async fn pick_default(self) -> Result<Vec<S>> {
+            self.pick::<NullActionExt>(PickOptions::new()).await
+        }
     }
-}
 
-impl<'a, T: SSS, S: Selection, A: ActionExt> Default for PickOptions<'a, T, S, A> {
-    fn default() -> Self {
-        Self::new()
+    #[ext(MatchResultExt)]
+    impl<T> Result<T> {
+        /// Return the first element
+        pub fn first<S>(self) -> Result<S>
+        where
+        T: IntoIterator<Item = S>,
+        {
+            match self {
+                Ok(v) => v.into_iter().next().ok_or(MatchError::NoMatch),
+                Err(e) => Err(e),
+            }
+        }
+
+        /// Handle [`MatchError::Abort`] using [`std::process::exit`]
+        pub fn abort(self) -> Result<T> {
+            match self {
+                Err(MatchError::Abort(x)) => std::process::exit(x),
+                _ => self,
+            }
+        }
     }
-}
 
-// ----------- ATTACHMENTS ------------------
+    // --------- BUILDER -------------
 
-impl<T: SSS, S: Selection> Matchmaker<T, S> {
-    // technically we don't need concurrency but the cost should be negligable
-    /// Causes [`Action::Print`] to print to stdout.
-    pub fn register_print_handler(
-        &mut self,
-        print_handle: AppendOnly<String>,
-        output_separator: String,
-        formatter: Arc<RenderFn<T>>,
-    ) {
-        self.register_interrupt_handler(Interrupt::Print, move |state| {
-            if let Some(t) = state.current_raw() {
-                let s = formatter(t, state.payload());
-                if atty::is(atty::Stream::Stdout) {
-                    print_handle.push(s);
+    /// Returns what should be pushed to input
+    pub type PasteHandler<T, S> =
+    Box<dyn FnMut(String, &MMState<'_, '_, T, S>) -> String + Send + Sync + 'static>;
+
+    pub type ActionExtHandler<T, S, A> =
+    Box<dyn FnMut(A, &mut MMState<'_, '_, T, S>) + Send + Sync + 'static>;
+
+    pub type ActionAliaser<T, S, A> =
+    Box<dyn FnMut(Action<A>, &mut MMState<'_, '_, T, S>) -> Actions<A> + Send + Sync + 'static>;
+
+    pub type Initializer<T, S> = Box<dyn FnOnce(&mut MMState<'_, '_, T, S>) + Send + Sync + 'static>;
+
+    /// Used to configure [`Matchmaker::pick`] with additional options.
+    pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
+        matcher: Option<&'a mut nucleo::Matcher>,
+        matcher_config: nucleo::Config,
+
+        event_loop: Option<EventLoop<A>>,
+        binds: Option<BindMap<A>>,
+
+        ext_handler: Option<ActionExtHandler<T, S, A>>,
+        ext_aliaser: Option<ActionAliaser<T, S, A>>,
+        #[cfg(feature = "bracketed-paste")]
+        paste_handler: Option<PasteHandler<T, S>>,
+
+        overlays: Vec<Box<dyn Overlay<A = A>>>,
+        overlay_config: Option<OverlayConfig>,
+        previewer: Option<Either<Preview, Previewer>>,
+
+        hidden_columns: Vec<bool>,
+
+        // Initializing code, i.e. to setup state.
+        initializer: Option<Initializer<T, S>>,
+        pub channel: Option<(
+            RenderSender<A>,
+            tokio::sync::mpsc::UnboundedReceiver<crate::message::RenderCommand<A>>,
+        )>,
+    }
+
+    impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
+        pub const fn new() -> Self {
+            Self {
+                matcher: None,
+                event_loop: None,
+                previewer: None,
+                binds: None,
+                matcher_config: nucleo::Config::DEFAULT,
+                ext_handler: None,
+                ext_aliaser: None,
+                #[cfg(feature = "bracketed-paste")]
+                paste_handler: None,
+                overlay_config: None,
+                overlays: Vec::new(),
+                channel: None,
+                hidden_columns: Vec::new(),
+                initializer: None,
+            }
+        }
+
+        pub fn with_binds(binds: BindMap<A>) -> Self {
+            let mut ret = Self::new();
+            ret.binds = Some(binds);
+            ret
+        }
+
+        pub fn with_matcher(matcher: &'a mut nucleo::Matcher) -> Self {
+            let mut ret = Self::new();
+            ret.matcher = Some(matcher);
+            ret
+        }
+
+        pub fn binds(mut self, binds: BindMap<A>) -> Self {
+            self.binds = Some(binds);
+            self
+        }
+
+        pub fn event_loop(mut self, event_loop: EventLoop<A>) -> Self {
+            self.event_loop = Some(event_loop);
+            self
+        }
+
+        /// Use the given [`Previewer`] to provide a [`Preview`].
+        /// # Example
+        /// See [`make_previewer`] for how to create one.
+        pub fn previewer(mut self, previewer: Previewer) -> Self {
+            self.previewer = Some(Either::Right(previewer));
+            self
+        }
+
+        /// Set a [`Preview`].
+        /// Overrides [`Matchmaker::connect_preview`].
+        pub fn preview(mut self, preview: Preview) -> Self {
+            self.previewer = Some(Either::Left(preview));
+            self
+        }
+
+        pub fn matcher(mut self, matcher_config: nucleo::Config) -> Self {
+            self.matcher_config = matcher_config;
+            self
+        }
+
+        pub fn hidden_columns(mut self, hidden_columns: Vec<bool>) -> Self {
+            self.hidden_columns = hidden_columns;
+            self
+        }
+
+        pub fn ext_handler<F>(mut self, handler: F) -> Self
+        where
+        F: FnMut(A, &mut MMState<'_, '_, T, S>) + Send + Sync + 'static,
+        {
+            self.ext_handler = Some(Box::new(handler));
+            self
+        }
+
+        pub fn ext_aliaser<F>(mut self, aliaser: F) -> Self
+        where
+        F: FnMut(Action<A>, &mut MMState<'_, '_, T, S>) -> Actions<A> + Send + Sync + 'static,
+        {
+            self.ext_aliaser = Some(Box::new(aliaser));
+            self
+        }
+
+        pub fn initializer<F>(mut self, aliaser: F) -> Self
+        where
+        F: FnOnce(&mut MMState<'_, '_, T, S>) + Send + Sync + 'static,
+        {
+            self.initializer = Some(Box::new(aliaser));
+            self
+        }
+
+        #[cfg(feature = "bracketed-paste")]
+        pub fn paste_handler<F>(mut self, handler: F) -> Self
+        where
+        F: FnMut(String, &MMState<'_, '_, T, S>) -> String + Send + Sync + 'static,
+        {
+            self.paste_handler = Some(Box::new(handler));
+            self
+        }
+
+        pub fn overlay<O>(mut self, overlay: O) -> Self
+        where
+        O: Overlay<A = A> + 'static,
+        {
+            self.overlays.push(Box::new(overlay));
+            self
+        }
+
+        pub fn overlay_config(mut self, overlay: OverlayConfig) -> Self {
+            self.overlay_config = Some(overlay);
+            self
+        }
+
+        pub fn render_tx(&mut self) -> RenderSender<A> {
+            if let Some((s, _)) = &self.channel {
+                s.clone()
+            } else {
+                let channel = tokio::sync::mpsc::unbounded_channel();
+                let ret = channel.0.clone();
+                self.channel = Some(channel);
+                ret
+            }
+        }
+    }
+
+    impl<'a, T: SSS, S: Selection, A: ActionExt> Default for PickOptions<'a, T, S, A> {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    // ----------- ATTACHMENTS ------------------
+
+    pub type AttachmentFormatter<T, S> = Either<
+    Arc<RenderFn<T>>,
+    for<'a, 'b, 'c> fn(&'a MMState<'b, 'c, T, S>, &'a str, Option<&dyn Fn(String)>) -> String,
+    >;
+
+    pub fn use_formatter<T: SSS, S: Selection>(
+        formatter: &AttachmentFormatter<T, S>,
+        state: &MMState<'_, '_, T, S>,
+        template: &str,
+        repeat: Option<&dyn Fn(String)>,
+    ) -> String {
+        match formatter {
+            Either::Left(f) => {
+                if let Some(t) = state.current_raw() {
+                    f(t, template)
                 } else {
-                    print!("{}{}", s, output_separator);
+                    String::new()
                 }
-            };
-        });
+            }
+            Either::Right(f) => f(state, template, repeat),
+        }
     }
 
-    /// Causes [`Action::Execute`] to cause the program to execute the program specified by its payload.
-    /// Note:
-    /// - not intended for direct use.
-    /// - Assumes preview and cmd formatter are the same.
-    pub fn register_execute_handler(&mut self, formatter: Arc<RenderFn<T>>) {
-        self.register_interrupt_handler(Interrupt::Execute, move |state| {
-            let template = state.payload();
-            if !template.is_empty()
-                && let Some(t) = state.current_raw()
-            {
-                let cmd = formatter(t, template);
-                let mut vars = state.make_env_vars();
+    // todo: this static bound shouldn't be necessary on S i don't know why its needed
+    impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
+        // technically we don't need concurrency but the cost should be negligable
+        /// Causes [`Action::Print`] to print to stdout.
+        pub fn register_print_handler(
+            &mut self,
+            print_handle: AppendOnly<String>,
+            output_separator: String,
+            formatter: AttachmentFormatter<T, S>,
+        ) {
+            self.register_interrupt_handler(Interrupt::Print, move |state| {
+                let template = state.payload().clone();
+                let repeat = |s: String| {
+                    if atty::is(atty::Stream::Stdout) {
+                        print_handle.push(s);
+                    } else {
+                        print!("{}{}", s, output_separator);
+                    }
+                };
+                let s = use_formatter(&formatter, state, &template, Some(&repeat));
+                if !s.is_empty() {
+                    repeat(s)
+                }
+            });
+        }
 
-                let preview_cmd = formatter(t, state.preview_payload());
-                let extra = env_vars!(
-                    "FZF_PREVIEW_COMMAND" => preview_cmd,
-                );
-                vars.extend(extra);
+        /// Causes [`Action::Execute`] to cause the program to execute the program specified by its payload.
+        /// Note:
+        /// - not intended for direct use.
+        /// - Assumes preview and cmd formatter are the same.
+        pub fn register_execute_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
+            self.register_interrupt_handler(Interrupt::Execute, move |state| {
+                let template = state.payload().clone();
+                if !template.is_empty() {
+                    let cmd = use_formatter(&formatter, state, &template, None);
+                    if cmd.is_empty() {
+                        return;
+                    }
+                    let mut vars = state.make_env_vars();
 
-                if let Some(mut child) = Command::from_script(&cmd)
+                    let preview_template = state.preview_payload().clone();
+                    let preview_cmd = use_formatter(&formatter, state, &preview_template, None);
+                    let extra = env_vars!(
+                        "FZF_PREVIEW_COMMAND" => preview_cmd,
+                    );
+                    vars.extend(extra);
+
+                    if let Some(mut child) = Command::from_script(&cmd)
                     .envs(vars)
                     .stdin(maybe_tty())
                     ._spawn()
-                {
-                    match child.wait() {
-                        Ok(i) => {
-                            info!("Command [{cmd}] exited with {i}")
-                        }
-                        Err(e) => {
-                            info!("Failed to wait on command [{cmd}]: {e}")
+                    {
+                        match child.wait() {
+                            Ok(i) => {
+                                info!("Command [{cmd}] exited with {i}")
+                            }
+                            Err(e) => {
+                                info!("Failed to wait on command [{cmd}]: {e}")
+                            }
                         }
                     }
+                };
+            });
+        }
+
+        /// Causes [`Action::Become`] to cause the program to become the program specified by its payload.
+        /// Note:
+        /// - not intended for direct use.
+        /// - Assumes preview and cmd formatter are the same.
+        pub fn register_become_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
+            self.register_interrupt_handler(Interrupt::Become, move |state| {
+                let template = state.payload().clone();
+                if !template.is_empty() {
+                    let cmd = use_formatter(&formatter, state, &template, None);
+                    if cmd.is_empty() {
+                        return;
+                    }
+                    let mut vars = state.make_env_vars();
+
+                    let preview_template = state.preview_payload().clone();
+                    let preview_cmd = use_formatter(&formatter, state, &preview_template, None);
+                    let extra = env_vars!(
+                        "FZF_PREVIEW_COMMAND" => preview_cmd,
+                    );
+                    vars.extend(extra);
+                    debug!("Becoming: {cmd}");
+
+                    Command::from_script(&cmd).envs(vars)._exec()
                 }
-            };
-        });
+            });
+        }
     }
 
-    /// Causes [`Action::Become`] to cause the program to become the program specified by its payload.
-    /// Note:
-    /// - not intended for direct use.
-    /// - Assumes preview and cmd formatter are the same.
-    pub fn register_become_handler(&mut self, formatter: Arc<RenderFn<T>>) {
-        self.register_interrupt_handler(Interrupt::Become, move |state| {
-            let template = state.payload();
-            if !template.is_empty()
-                && let Some(t) = state.current_raw()
-            {
-                let cmd = formatter(t, template);
-                let mut vars = state.make_env_vars();
+    /// Causes the program to display a preview of the active result.
+    /// The Previewer can be connected to [`Matchmaker`] using [`PickOptions::previewer`]
+    pub fn make_previewer<T: SSS, S: Selection + 'static>(
+        mm: &mut Matchmaker<T, S>,
+        previewer_config: PreviewerConfig, // note: help_str is provided separately so help_colors is ignored
+        formatter: AttachmentFormatter<T, S>,
+        help_str: Text<'static>,
+    ) -> Previewer {
+        // initialize previewer
+        let (previewer, tx) = Previewer::new(previewer_config);
+        let preview_tx = tx.clone();
 
-                let preview_cmd = formatter(t, state.preview_payload());
-                let extra = env_vars!(
-                    "FZF_PREVIEW_COMMAND" => preview_cmd,
-                );
-                vars.extend(extra);
-                debug!("Becoming: {cmd}");
-
-                Command::from_script(&cmd).envs(vars)._exec()
-            }
-        });
-    }
-}
-
-/// Causes the program to display a preview of the active result.
-/// The Previewer can be connected to [`Matchmaker`] using [`PickOptions::previewer`]
-pub fn make_previewer<T: SSS, S: Selection>(
-    mm: &mut Matchmaker<T, S>,
-    previewer_config: PreviewerConfig, // note: help_str is provided separately so help_colors is ignored
-    formatter: Arc<RenderFn<T>>,
-    help_str: Text<'static>,
-) -> Previewer {
-    // initialize previewer
-    let (previewer, tx) = Previewer::new(previewer_config);
-    let preview_tx = tx.clone();
-
-    // preview handler
-    mm.register_event_handler(Event::CursorChange | Event::PreviewChange, move |state, _| {
+        // preview handler
+        mm.register_event_handler(Event::CursorChange | Event::PreviewChange, move |state, _| {
             if state.preview_visible() &&
-            let Some(t) = state.current_raw() &&
-            let m = state.preview_payload() &&
+            let m = state.preview_payload().clone() &&
             !m.is_empty()
             {
-                let cmd = formatter(t, m);
+                let cmd = use_formatter(&formatter, state, &m, None);
+                if cmd.is_empty() {
+                    return;
+                }
                 let mut envs = state.make_env_vars();
                 let extra = env_vars!(
                     "COLUMNS" => state.previewer_area().map_or("0".to_string(), |r| r.width.to_string()),
@@ -736,12 +767,12 @@ fn maybe_tty() -> Stdio {
 impl<T: SSS + Debug, S: Selection + Debug> Debug for Matchmaker<T, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Matchmaker")
-            // omit `worker`
-            .field("render_config", &self.render_config)
-            .field("tui_config", &self.tui_config)
-            .field("selection_set", &self.selector)
-            .field("event_handlers", &self.event_handlers)
-            .field("interrupt_handlers", &self.interrupt_handlers)
-            .finish()
+        // omit `worker`
+        .field("render_config", &self.render_config)
+        .field("tui_config", &self.tui_config)
+        .field("selection_set", &self.selector)
+        .field("event_handlers", &self.event_handlers)
+        .field("interrupt_handlers", &self.interrupt_handlers)
+        .finish()
     }
 }

@@ -2,7 +2,6 @@ use std::{
     io::Read,
     path::Path,
     process::{Command, exit},
-    sync::Arc,
 };
 
 use crate::{
@@ -32,9 +31,11 @@ use matchmaker::{
     message::Interrupt,
     nucleo::{
         ColumnIndexable,
-        injector::{AnsiInjector, IndexedInjector, Injector, SegmentedInjector},
+        injector::{AnsiInjector, Either, IndexedInjector, Injector, SegmentedInjector},
     },
     preview::AppendOnly,
+    render::MMState,
+    use_formatter,
 };
 use matchmaker_partial::Apply;
 
@@ -212,38 +213,45 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         mut mm,
         injector,
         OddEnds {
-            formatter,
             splitter,
             hidden_columns,
         },
     ) = Matchmaker::new_from_config(render, tui, worker, exit, preprocess);
     // make previewer
     let help_str = display_binds(&event_loop.binds, Some(&previewer.help_colors));
-    let previewer = make_previewer(&mut mm, previewer, formatter.clone(), help_str);
+    let cli_formatter = Either::Right(
+        crate::formatter::format_cli
+            as for<'a, 'b, 'c> fn(
+                &'a MMState<'b, 'c, matchmaker::ConfigMMItem, matchmaker::ConfigMMInnerItem>,
+                &'a str,
+                Option<&dyn Fn(String)>,
+            ) -> String,
+    );
+    let previewer = make_previewer(&mut mm, previewer, cli_formatter.clone(), help_str);
 
     // ---------------------- register handlers ---------------------------
     // print handler (no quoting)
-    let print_formatter = Arc::new(mm.worker.default_format_fn::<false>(|item| item.to_cow()));
     mm.register_print_handler(
         print_handle.clone(),
         output_separator.clone(),
-        print_formatter.clone(),
+        cli_formatter.clone(),
     );
 
     // execute handlers
-    mm.register_execute_handler(formatter.clone());
-    mm.register_become_handler(formatter.clone());
+    mm.register_execute_handler(cli_formatter.clone());
+    mm.register_become_handler(cli_formatter.clone());
 
     // reload handler
-    let reload_formatter = formatter.clone();
+    let reload_formatter = cli_formatter.clone();
     mm.register_interrupt_handler(Interrupt::Reload, move |state| {
         let injector = state.injector();
         let injector = IndexedInjector::new_globally_indexed(injector);
         let injector = SegmentedInjector::new(injector, splitter.clone());
         let injector = AnsiInjector::new(injector, preprocess);
 
-        if let Some(t) = state.current_raw() {
-            let cmd = reload_formatter(t, state.payload());
+        let cmd = use_formatter(&reload_formatter, state, state.payload(), None);
+
+        if !cmd.is_empty() {
             let vars = state.make_env_vars();
             debug!("Reloading: {cmd}");
             if let Some(stdout) = Command::from_script(&cmd).envs(vars).spawn_piped()._elog() {
@@ -262,6 +270,9 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let mut action_context = ActionContext {
         bind_tx: event_loop.bind_controller(),
         additional_commands: (additional_commands, 0),
+        output_template,
+        print_handle: print_handle.clone(),
+        output_separator: output_separator.clone(),
     };
 
     let mut options = PickOptions::new()
@@ -269,7 +280,11 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         .matcher(matcher.0)
         .previewer(previewer)
         .hidden_columns(hidden_columns)
-        .ext_handler(move |x, y| action_handler(x, y, &mut action_context));
+        .ext_handler(move |x, y| action_handler(x, y, &mut action_context))
+        .ext_aliaser(|a, _state| match a {
+            matchmaker::Action::Accept => matchmaker::acs![MMAction::Accept],
+            _ => matchmaker::acs![a],
+        });
 
     let render_tx = options.render_tx();
 
@@ -301,26 +316,13 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         handle.await._wbog(); // warn the mapreader error (?)
     }
 
-    mm.pick(options).await.map(|v| {
-        print_handle.map_to_vec(|s| print!("{}{}", s, output_separator));
-
-        for item in v {
-            let s = if let Some(s) = &output_template {
-                print_formatter(
-                    &matchmaker::nucleo::Indexed {
-                        index: 0,
-                        inner: item,
-                    },
-                    s,
-                )
-                .into()
-            } else {
-                item.to_cow()
-            };
-
-            print!("{}{}", s, output_separator)
+    match mm.pick(options).await {
+        Ok(_) | Err(MatchError::NoMatch) => {
+            print_handle.map_to_vec(|s| print!("{}{}", s, output_separator));
+            Ok(())
         }
-    })
+        Err(e) => Err(e),
+    }
 }
 
 use matchmaker::nucleo::{Line, Span};

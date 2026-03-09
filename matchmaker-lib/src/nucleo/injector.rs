@@ -276,13 +276,7 @@ mod ansi {
     impl SegmentableItem for Either<String, Text<'static>> {
         fn slice(&self, range: Range<usize>) -> Text<'_> {
             match self {
-                Either::Left(s) => {
-                    if range.start == range.end {
-                        Text::default()
-                    } else {
-                        Text::raw(&s[range.start..range.end])
-                    }
-                }
+                Either::Left(s) => ratatui::text::Text::from(&s[range]),
                 Either::Right(text) => slice_ratatui_text(text, range),
             }
         }

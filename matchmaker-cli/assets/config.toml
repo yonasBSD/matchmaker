@@ -63,7 +63,7 @@
     "ctrl-shift-down" = "PreviewHalfPageDown"
 
     # Columns
-    "ctrl-." = "ColumnNext"
+    "ctrl-." = "NextColumn"
 
     # Preview
     "shift+scrollup"   = "PreviewUp"

@@ -211,7 +211,8 @@ impl State {
     }
 
     // ---------- flush -----------
-    pub(crate) fn dispatcher<'a, 'b: 'a, T: SSS, S: Selection>(
+    // public for tests only!
+    pub fn dispatcher<'a, 'b: 'a, T: SSS, S: Selection>(
         &'a mut self,
         ui: &'a mut UI,
         picker_ui: &'a mut PickerUI<'b, T, S>,
