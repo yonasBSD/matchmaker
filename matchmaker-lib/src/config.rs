@@ -363,7 +363,6 @@ pub struct ResultsConfig {
     // ------------
     pub column_spacing: Count,
     pub current_prefix: String,
-    pub match_start_context: Option<usize>,
 
     // lowpri: maybe space-around/space-between instead?
     #[partial(alias = "ra")]
@@ -372,6 +371,10 @@ pub struct ResultsConfig {
     #[partial(alias = "v")]
     #[serde(alias = "vertical")]
     pub stacked_columns: bool,
+
+    pub autoscroll_initial_preserved: usize,
+    pub autoscroll: bool,
+    pub autoscroll_context: usize,
 
     #[serde(alias = "hr")]
     #[serde(deserialize_with = "camelcase_normalized")]
@@ -413,12 +416,15 @@ impl Default for ResultsConfig {
 
             wrap: Default::default(),
             min_wrap_width: 6,
-            match_start_context: Some(4),
 
             column_spacing: Default::default(),
             current_prefix: Default::default(),
             right_align_last: false,
             stacked_columns: false,
+
+            autoscroll: true,
+            autoscroll_initial_preserved: 0,
+            autoscroll_context: 4,
             horizontal_separator: Default::default(),
         }
     }

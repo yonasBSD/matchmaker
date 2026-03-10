@@ -3,8 +3,6 @@
 
 use super::{Line, Span, Style, Text};
 use bitflags::bitflags;
-
-use ratatui::style::Modifier;
 use std::{
     borrow::Cow,
     sync::{
@@ -19,7 +17,7 @@ use super::{injector::WorkerInjector, query::PickerQuery};
 use crate::{
     SSS,
     nucleo::Render,
-    utils::text::{text_to_string, wrap_text},
+    utils::text::{hscroll_indicator, text_to_string, wrap_text, wrapping_indicator},
 };
 
 type ColumnFormatFn<T> = Box<dyn for<'a> Fn(&'a T) -> Text<'a> + Send + Sync>;
@@ -279,7 +277,7 @@ impl<T: SSS> Worker<T> {
     /// 3. Status
     ///
     /// # Notes
-    /// - width is at least header width
+    /// - Final column width is at least header width
     pub fn results(
         &mut self,
         start: u32,
@@ -287,7 +285,8 @@ impl<T: SSS> Worker<T> {
         width_limits: &[u16],
         highlight_style: Style,
         matcher: &mut nucleo::Matcher,
-        match_start_context: Option<usize>,
+        autoscroll: Option<(usize, usize)>,
+        hscroll_offset: i8,
     ) -> (WorkerResults<'_, T>, Vec<u16>, Status) {
         let (snapshot, status) = Self::new_snapshot(&mut self.nucleo);
 
@@ -324,7 +323,8 @@ impl<T: SSS> Worker<T> {
                                 highlight_style,
                                 width_limit,
                                 &mut self.col_indices_buffer,
-                                match_start_context,
+                                autoscroll,
+                                hscroll_offset,
                             )
                         } else if width_limit != u16::MAX {
                             let (cell, wrapped) = wrap_text(cell, width_limit - 1);
@@ -406,7 +406,8 @@ fn render_cell<T: SSS>(
     highlight_style: Style,
     width_limit: u16,
     col_indices_buffer: &mut Vec<u32>,
-    match_start_context: Option<usize>,
+    autoscroll: Option<(usize, usize)>,
+    hscroll_offset: i8,
 ) -> (Text<'static>, usize) {
     let mut cell_width = 0;
     let mut wrapped = false;
@@ -460,22 +461,32 @@ fn render_cell<T: SSS>(
         }
 
         // 2: Calculate where to start rendering this line
-        let mut start_idx = 0;
+        let mut start_idx;
+        let mut preserved_prefix = vec![];
 
-        if let (Some(n), Some(first_idx)) = (match_start_context, first_match_idx) {
-            start_idx = first_idx.saturating_sub(n);
+        if let Some((preserved, context)) = autoscroll {
+            let first_idx = first_match_idx.unwrap_or(0);
+            start_idx = (first_idx as i32 + hscroll_offset as i32 - context as i32).max(0) as usize;
 
-            // If width_limit is given, Try to start earlier provided we don't exceed width_limit.
             if width_limit != u16::MAX {
                 let mut tail_width: usize = line_graphemes[start_idx..]
                     .iter()
                     .map(|(g, _)| g.width())
                     .sum();
 
+                let preserved_width = line_graphemes[..preserved.min(line_graphemes.len())]
+                    .iter()
+                    .map(|(g, _)| g.width())
+                    .sum::<usize>();
+
+                let gap_indicator_width = 1;
+
                 // Expand leftwards as long as the total rendered width <= width_limit
-                while start_idx > 0 {
+                while start_idx > preserved {
                     let prev_width = line_graphemes[start_idx - 1].0.width();
-                    if tail_width + prev_width <= width_limit as usize {
+                    if tail_width + preserved_width + gap_indicator_width + prev_width
+                        <= width_limit as usize
+                    {
                         start_idx -= 1;
                         tail_width += prev_width;
                     } else {
@@ -483,6 +494,14 @@ fn render_cell<T: SSS>(
                     }
                 }
             }
+
+            if start_idx <= preserved + 1 {
+                start_idx = 0;
+            } else {
+                preserved_prefix = line_graphemes[..preserved].to_vec();
+            }
+        } else {
+            start_idx = hscroll_offset.max(0) as usize;
         }
 
         // 3: Apply the standard wrapping and Span generation logic to the visible slice
@@ -490,6 +509,31 @@ fn render_cell<T: SSS>(
         let mut current_span = String::new();
         let mut current_style = Style::default();
         let mut current_width = 0;
+
+        // Add preserved prefix and ellipsis if needed
+        if start_idx > 0 && autoscroll.is_some() {
+            if !preserved_prefix.is_empty() {
+                for (g, s) in preserved_prefix {
+                    if s != current_style {
+                        if !current_span.is_empty() {
+                            current_spans.push(Span::styled(current_span, current_style));
+                        }
+                        current_span = String::new();
+                        current_style = s;
+                    }
+                    current_span.push_str(g);
+                    current_width += g.width();
+                }
+                if !current_span.is_empty() {
+                    current_spans.push(Span::styled(current_span, current_style));
+                }
+            }
+            current_spans.push(hscroll_indicator());
+            current_width += 1;
+
+            current_span = String::new();
+            current_style = Style::default();
+        }
 
         let mut graphemes = line_graphemes[start_idx..].iter().peekable();
 
@@ -503,10 +547,7 @@ fn render_cell<T: SSS>(
                     if !current_span.is_empty() {
                         current_spans.push(Span::styled(current_span, current_style));
                     }
-                    current_spans.push(Span::styled(
-                        "↵",
-                        Style::default().add_modifier(Modifier::DIM),
-                    ));
+                    current_spans.push(wrapping_indicator());
                     lines.push(Line::from(current_spans));
 
                     current_spans = Vec::new();
@@ -599,6 +640,7 @@ mod tests {
             u16::MAX,
             &mut buffer,
             None,
+            0,
         );
 
         let output_str = text_to_string(&result_text);
@@ -609,7 +651,11 @@ mod tests {
     #[test]
     fn test_scroll_context_cuts_prefix_correctly() {
         // Match starts at index 6 ("match"). Context is 2.
-        // We expect it to drop "hell", keep "o ", and render "o match world"
+        // autoscroll = Some((preserved=0, context=2))
+        // initial_start_idx = 6 + 0 - 2 = 4.
+        // start_idx = 4.
+        // start_idx > preserved + 1 (4 > 1) -> preserved_prefix is empty, start_idx=4.
+        // "o match world"
         let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "hello match world");
         let snapshot = nucleo.snapshot();
         let item = snapshot.get_item(0).unwrap();
@@ -627,21 +673,29 @@ mod tests {
             highlight,
             u16::MAX,
             &mut buffer,
-            Some(2),
+            Some((0, 2)),
+            0,
         );
 
         let output_str = text_to_string(&result_text);
-        assert_eq!(output_str, "o match world");
+        assert_eq!(output_str, "…o match world");
     }
 
     #[test]
     fn test_scroll_context_backfills_to_fill_width_limit() {
         // Query "match". Starts at index 10.
         // "abcdefghijmatch"
-        // If context = 1, normally we'd start at index 9 ("jmatch"). Width = 6.
-        // If width_limit = 10, the backfill logic should expand backwards
-        // to consume 4 more characters to fill the 10-char limit without wrapping.
-        // Expected start: "fghijmatch"
+        // autoscroll = Some((preserved=0, context=1))
+        // initial_start_idx = 10 + 0 - 1 = 9 ("jmatch").
+        // width_limit = 10.
+        // tail_width ("jmatch") = 6.
+        // Try to decrease start_idx.
+        // start_idx=8 ("ijmatch"), tail_width=7.
+        // start_idx=7 ("hijmatch"), tail_width=8.
+        // start_idx=6 ("ghijmatch"), tail_width=9.
+        // start_idx=5 ("fghijmatch"), tail_width=10.
+        // start_idx=4 ("efghijmatch"), tail_width=11 > 10 (STOP).
+        // Result start_idx = 5. Output: "fghijmatch"
 
         let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "abcdefghijmatch");
         let snapshot = nucleo.snapshot();
@@ -659,11 +713,78 @@ mod tests {
             highlight,
             10,
             &mut buffer,
-            Some(1),
+            Some((0, 1)),
+            0,
         );
 
         let output_str = text_to_string(&result_text);
-        assert_eq!(output_str, "fghijmatch");
+        assert_eq!(output_str, "…ghijmatch");
+        assert_eq!(width, 10);
+    }
+
+    #[test]
+    fn test_preserved_prefix_and_ellipsis() {
+        // Query "match". Starts at index 10.
+        // "abcdefghijmatch"
+        // autoscroll = Some((preserved=3, context=1))
+        // initial_start_idx = 10 + 0 - 1 = 9.
+        // start_idx = 9.
+        // width_limit = 10.
+        // preserved_width ("abc") = 3.
+        // gap_indicator_width ("…") = 1.
+        // tail_width ("jmatch") = 6.
+        // total = 3 + 1 + 6 = 10.
+        // start_idx=9, preserved=3. 9 > 3 + 1 (9 > 4) -> preserved_prefix = "abc", output: "abc…jmatch"
+
+        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "abcdefghijmatch");
+        let snapshot = nucleo.snapshot();
+        let item = snapshot.get_item(0).unwrap();
+
+        let cell = Text::from("abcdefghijmatch");
+        let highlight = Style::default().fg(Color::Red);
+
+        let (result_text, width) = render_cell(
+            cell,
+            0,
+            &snapshot,
+            &item,
+            &mut matcher,
+            highlight,
+            10,
+            &mut buffer,
+            Some((3, 1)),
+            0,
+        );
+
+        let output_str = text_to_string(&result_text);
+        assert_eq!(output_str, "abc…jmatch");
+        assert_eq!(width, 10);
+    }
+
+    #[test]
+    fn test_wrap() {
+        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "abcdefmatch");
+        let snapshot = nucleo.snapshot();
+        let item = snapshot.get_item(0).unwrap();
+
+        let cell = Text::from("abcdefmatch");
+        let highlight = Style::default().fg(Color::Red);
+
+        let (result_text, width) = render_cell(
+            cell,
+            0,
+            &snapshot,
+            &item,
+            &mut matcher,
+            highlight,
+            10,
+            &mut buffer,
+            Some((3, 1)),
+            -2,
+        );
+
+        let output_str = text_to_string(&result_text);
+        assert_eq!(output_str, "abcdefmat↵\nch");
         assert_eq!(width, 10);
     }
 }

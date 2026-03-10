@@ -16,7 +16,7 @@ use crate::{
     render::Click,
     utils::{
         string::{fit_width, substitute_escaped},
-        text::{apply_to_lines, clip_text_lines, expand_indents, hscroll_line, prefix_text},
+        text::{clip_text_lines, expand_indents, prefix_text},
     },
 };
 
@@ -25,8 +25,8 @@ pub struct ResultsUI {
     cursor: u16,
     bottom: u32,
     col: Option<usize>,
-    /// y, x
-    pub scroll: [u16; 2],
+    pub hscroll: i8,
+    pub vscroll: u8,
 
     /// available height
     height: u16,
@@ -56,7 +56,8 @@ impl ResultsUI {
             cursor: 0,
             bottom: 0,
             col: None,
-            scroll: [0, 0],
+            hscroll: 0,
+            vscroll: 0,
 
             widths: Vec::new(),
             height: 0, // uninitialized, so be sure to call update_dimensions
@@ -219,19 +220,26 @@ impl ResultsUI {
     }
 
     pub fn current_scroll(&mut self, x: i8, horizontal: bool) {
-        let value = &mut self.scroll[horizontal as usize];
-        *value = if x.is_negative() {
-            value.saturating_sub(x.unsigned_abs() as u16)
-        } else if x.is_positive() {
-            value.saturating_add(x as u16)
+        if horizontal {
+            self.hscroll = if x == 0 {
+                0
+            } else {
+                self.hscroll.saturating_add(x)
+            };
         } else {
-            0
-        };
-        // log::trace!("hscroll:: {value}");
+            self.vscroll = if x == 0 {
+                0
+            } else if x.is_negative() {
+                self.vscroll.saturating_sub(x.unsigned_abs())
+            } else {
+                self.vscroll.saturating_add(x as u8)
+            };
+        }
     }
 
     pub fn reset_current_scroll(&mut self) {
-        self.scroll = [0, 0]
+        self.hscroll = 0;
+        self.vscroll = 0;
     }
 
     // ------- RENDERING ----------
@@ -345,13 +353,19 @@ impl ResultsUI {
                 .collect()
         };
 
+        let autoscroll = self.config.autoscroll.then_some((
+            self.config.autoscroll_initial_preserved,
+            self.config.autoscroll_context,
+        ));
+
         let (mut results, mut widths, status) = worker.results(
             offset,
             end,
             &width_limits,
             self.match_style(),
             matcher,
-            self.config.match_start_context,
+            autoscroll,
+            self.hscroll,
         );
 
         // log::debug!("widths: {width_limits:?}, {widths:?}");
@@ -554,9 +568,7 @@ impl ResultsUI {
             }
         }
 
-        // topside padding is non-flexible, and does its best to stay at 2 full items without obscuring cursor.
-        // One option is we move enforcement from cursor_prev to
-
+        // topside padding is not self-correcting, and can only do its best to stay at #padding lines without obscuring cursor on cursor movement events.
         let mut remaining_height = self.height.saturating_sub(total_height);
 
         for (mut i, (mut row, item)) in results.drain(start_index as usize..).enumerate() {
@@ -594,10 +606,10 @@ impl ResultsUI {
 
             if hz {
                 // scroll down
-                if self.is_current(i) && self.scroll[0] > 0 {
+                if self.is_current(i) && self.vscroll > 0 {
                     for (x, t) in row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0) {
                         if self.col.is_none() || self.col() == Some(x) {
-                            let scroll = self.scroll[0] as usize;
+                            let scroll = self.vscroll as usize;
 
                             if scroll < t.lines.len() {
                                 t.lines = t.lines.split_off(scroll);
@@ -641,9 +653,7 @@ impl ResultsUI {
                         let is_current_row = self.is_current(i);
 
                         if is_current_row && is_active_col {
-                            if self.scroll[1] > 0 {
-                                apply_to_lines(&mut t, |line| hscroll_line(line, self.scroll[1]));
-                            }
+                            // NOTE: hscroll is handled in worker.results -> render_cell
                         }
 
                         match self.config.row_connection_style {
@@ -702,8 +712,24 @@ impl ResultsUI {
                 rows.push(row);
             } else {
                 let mut push = vec![];
+                let mut vscroll_to_skip = if self.is_current(i) {
+                    self.vscroll as usize
+                } else {
+                    0
+                };
 
                 for (x, mut col) in row.into_iter().enumerate() {
+                    if vscroll_to_skip > 0 {
+                        let col_height = col.lines.len();
+                        if vscroll_to_skip >= col_height {
+                            vscroll_to_skip -= col_height;
+                            continue;
+                        } else {
+                            col.lines = col.lines.split_off(vscroll_to_skip);
+                            vscroll_to_skip = 0;
+                        }
+                    }
+
                     let mut height = col.height() as u16;
 
                     if remaining_height == 0 {
@@ -713,19 +739,6 @@ impl ResultsUI {
                         clip_text_lines(&mut col, remaining_height, self.reverse());
                     }
                     remaining_height -= height;
-
-                    if self.is_current(i) && self.scroll[1] > 0 && active_column == x {
-                        apply_to_lines(&mut col, |line| hscroll_line(line, self.scroll[1]));
-                    }
-                    if self.is_current(i) && self.scroll[0] > 0 && active_column == x {
-                        let scroll = self.scroll[0] as usize;
-
-                        if scroll < col.lines.len() {
-                            col.lines = col.lines.split_off(scroll);
-                        } else {
-                            col.lines.clear();
-                        }
-                    }
 
                     prefix_text(&mut col, prefix.clone());
 
