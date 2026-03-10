@@ -1,5 +1,5 @@
-use cli_boilerplate_automation::bait::ResultExt;
-use cli_boilerplate_automation::unwrap;
+use cba::bait::ResultExt;
+use cba::unwrap;
 use ratatui::text::{Line, Text};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};

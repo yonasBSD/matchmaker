@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::bring::consume_escaped;
+use cba::bring::consume_escaped;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 

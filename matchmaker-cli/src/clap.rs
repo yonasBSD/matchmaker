@@ -1,7 +1,7 @@
 use clap::{ArgAction, Parser};
 use std::{ffi::OsString, path::PathBuf};
 
-pub static BINARY_FULL: &str = "matchmaker";
+pub static LIBRARY_FULL: &str = "matchmaker";
 pub static BINARY_SHORT: &str = "mm";
 
 #[derive(Debug, Parser, Default, Clone)]
@@ -35,6 +35,8 @@ pub struct Cli {
     pub options: bool,
     #[arg(long)]
     pub binds: bool,
+    #[arg(long)]
+    pub template: bool,
 }
 
 impl Cli {
@@ -78,6 +80,7 @@ impl Cli {
             try_parse!("verbosity");
             try_parse!("options");
             try_parse!("binds");
+            try_parse!("template");
 
             // Flags
             if [

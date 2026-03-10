@@ -135,7 +135,7 @@ pub fn try_split_kv(vec: &mut Vec<String>, extended_keys: bool) -> anyhow::Resul
 }
 #[cfg(test)]
 mod tests {
-    use cli_boilerplate_automation::vec_;
+    use cba::vec_;
 
     use super::*;
 

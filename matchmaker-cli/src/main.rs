@@ -5,6 +5,7 @@ mod action;
 mod clap;
 mod config;
 mod crokey;
+pub mod formatter;
 mod parse;
 mod paths;
 mod start;
@@ -17,7 +18,7 @@ use paths::*;
 use start::*;
 use utils::*;
 
-use cli_boilerplate_automation::{
+use cba::{
     _dbg, bait::ResultExt, bog::BogOkExt, bring::split::split_whitespace_preserving_nesting, ebog,
 };
 use matchmaker::MatchError;
@@ -70,6 +71,7 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
         let parts =
             match split_whitespace_preserving_nesting(&val, Some(['(', ')']), Some(['[', ']'])) {
                 Ok(mut parts) => {
+                    // todo: recommend to prefer b.ctrl-x="Cancel Quit" as that allows correct whitespace splitting into sequences
                     let is_binds = path.len() == 1 && ["binds", "b"].contains(&path[0].as_ref());
                     try_split_kv(&mut parts, is_binds)?;
                     parts
@@ -84,7 +86,6 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
             };
 
         log::trace!("{parts:?}");
-
         _dbg!(&path, &parts);
         partial
             .set(path.as_slice(), &parts)
@@ -104,6 +105,9 @@ fn display_doc(cli: &Cli) {
     }
     if cli.binds {
         md.push_str(include_str!("../assets/docs/binds.md"));
+    }
+    if cli.template {
+        md.push_str(include_str!("../assets/docs/template.md"));
     }
 
     if !md.is_empty() {

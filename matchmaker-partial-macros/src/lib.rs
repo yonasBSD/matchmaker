@@ -551,9 +551,8 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                         } else {
                             quote! {
                                 if rest.is_empty() {
-                                    let mut combined = vec![key_str.clone()];
-                                    combined.extend_from_slice(val);
-                                    let (key, value): (#key_ty, #val_ty) = matchmaker_partial::deserialize(&combined)?;
+                                    let key: #key_ty = matchmaker_partial::deserialize(&[key_str.clone()])?;
+                                    let value: #val_ty = matchmaker_partial::deserialize(&val)?;
                                     let _ = #target.insert(key, value);
                                 } else {
                                     return Err(matchmaker_partial::PartialSetError::ExtraPaths(rest.to_vec()));

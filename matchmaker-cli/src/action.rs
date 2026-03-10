@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use cli_boilerplate_automation::{
+use cba::{
     bait::ResultExt, bring::split::split_whitespace_preserving_nesting, unwrap,
 };
 use log::error;
@@ -11,6 +11,8 @@ use matchmaker::{
     nucleo::Span,
     ui::StatusUI,
 };
+
+use matchmaker::preview::AppendOnly;
 
 pub type MMState<'a, 'b> = matchmaker::render::MMState<'a, 'b, ConfigMMItem, ConfigMMInnerItem>;
 
@@ -31,7 +33,7 @@ pub enum MMAction {
     Filtering(Option<bool>),
     /// Cycle result sorting between None, Partial, and Full
     CycleSort,
-    ReloadNext(Option<usize>),
+    NextReload(Option<usize>),
 
     // set
     /// Set header
@@ -43,18 +45,24 @@ pub enum MMAction {
     /// Set status
     SetStatus(Option<String>),
 
+    /// Accept current selection and print using output_template
+    Accept,
+
     // Unimplemented
     /// History up (TODO)
     HistoryUp,
     /// History down (TODO)
     HistoryDown,
     /// [`matchmaker::Action::Execute`] but silent (TODO)
-    ExecuteSilent(String),
+    ExecuteAsync(String),
 }
 
 pub struct ActionContext {
     pub bind_tx: BindSender<MMAction>,
     pub additional_commands: (Vec<String>, usize),
+    pub output_template: Option<String>,
+    pub print_handle: AppendOnly<String>,
+    pub output_separator: String,
 }
 
 #[allow(unused)]
@@ -64,9 +72,29 @@ pub fn action_handler(
     ActionContext {
         bind_tx,
         additional_commands,
+        output_template,
+        print_handle,
+        output_separator,
     }: &mut ActionContext,
 ) {
     match a {
+        MMAction::Accept => {
+            let repeat = |s: String| {
+                if atty::is(atty::Stream::Stdout) {
+                    print_handle.push(s);
+                } else {
+                    print!("{}{}", s, output_separator);
+                }
+            };
+
+            if let Some(template) = output_template {
+                crate::formatter::format_cli(state, template, Some(&repeat));
+            } else {
+                state.map_selected_to_vec(|x| repeat(x.to_cow().to_string()));
+            }
+
+            state.should_quit_nomatch = true;
+        }
         // state
         MMAction::CycleSort => {
             #[cfg(feature = "experimental")]
@@ -95,7 +123,7 @@ pub fn action_handler(
             // todo
         }
 
-        MMAction::ReloadNext(x) => {
+        MMAction::NextReload(x) => {
             let payload = match x {
                 None => {
                     additional_commands.1 =
@@ -106,7 +134,7 @@ pub fn action_handler(
                     if x < additional_commands.0.len() {
                         &additional_commands.0[x]
                     } else {
-                        error!("Index {x} is out of bounds for ReloadNext");
+                        error!("Index {x} is out of bounds for NextReload");
                         return;
                     }
                 }
@@ -183,8 +211,8 @@ pub fn action_handler(
                 .set_status_line(s.as_deref().map(StatusUI::parse_template_to_status_line));
         }
 
-        MMAction::ExecuteSilent(s) => {
-            // todo
+        MMAction::ExecuteAsync(s) => {
+            state.set_interrupt(Interrupt::ExecuteSilent, s);
         }
     }
 }
@@ -193,17 +221,17 @@ enum_from_str_display! {
     MMAction;
 
     units:
-    CycleSort, HistoryUp, HistoryDown;
+    CycleSort, HistoryUp, HistoryDown, Accept;
 
 
     tuples:
-    Bind, Unbind, PushBind, PopBind, ExecuteSilent;
+    Bind, Unbind, PushBind, PopBind, ExecuteAsync;
 
     defaults:
     ;
 
     options:
-    SetPrompt, SetHeader, SetFooter, SetStatus, Filtering, ReloadNext;
+    SetPrompt, SetHeader, SetFooter, SetStatus, Filtering, NextReload;
 
     lossy:
     ;

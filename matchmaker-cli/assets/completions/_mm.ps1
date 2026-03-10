@@ -31,6 +31,7 @@ Register-ArgumentCompleter -Native -CommandName 'mm' -ScriptBlock {
             [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--options', '--options', [CompletionResultType]::ParameterName, 'Display options doc')
             [CompletionResult]::new('--binds', '--binds', [CompletionResultType]::ParameterName, 'binds')
+            [CompletionResult]::new('--template', '--template', [CompletionResultType]::ParameterName, 'template')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break

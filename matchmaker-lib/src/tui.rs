@@ -1,6 +1,6 @@
 use crate::config::TerminalConfig;
 use anyhow::Result;
-use cli_boilerplate_automation::bait::ResultExt;
+use cba::bait::ResultExt;
 use crossterm::{
     event::{
         DisableMouseCapture, EnableMouseCapture, KeyboardEnhancementFlags,
@@ -188,13 +188,16 @@ where
             execute!(backend, PopKeyboardEnhancementFlags)._elog();
         }
 
-        let move_up = self.cursor_y_offset.unwrap_or(1);
-        log::debug!("Moving up by: {move_up}");
+        if self.config.move_up_on_exit {
+            let move_up = self.cursor_y_offset.unwrap_or(1);
+            log::debug!("Moving up by: {move_up}");
+            execute!(backend, crossterm::cursor::MoveUp(move_up))._elog();
+        }
 
         if self.config.clear_on_exit && !cfg!(debug_assertions) {
             execute!(
                 backend,
-                crossterm::cursor::MoveUp(move_up),
+                crossterm::cursor::MoveToColumn(0),
                 crossterm::terminal::Clear(ClearType::FromCursorDown)
             )
             ._elog();

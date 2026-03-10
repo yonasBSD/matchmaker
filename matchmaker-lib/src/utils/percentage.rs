@@ -1,6 +1,6 @@
 use std::fmt;
 
-use cli_boilerplate_automation::define_restricted_wrapper;
+use cba::define_restricted_wrapper;
 use serde::{Deserialize, Deserializer};
 
 define_restricted_wrapper!(

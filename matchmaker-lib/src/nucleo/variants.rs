@@ -159,23 +159,30 @@ where
     /// pub fn make_mm(
     ///     items: impl Iterator<Item = RunAction>,
     /// ) -> Matchmaker<Indexed<RunAction>, RunAction> {
-    ///     let worker = Worker::new_indexable(["name", "alias", "desc"]);
+    ///     let worker = Worker::new_indexable(["name", "alias", "desc"], "name");
     ///     worker.append(items);
     ///     let selector = Selector::new(Indexed::identifier);
     ///     Matchmaker::new(worker, selector)
     /// }
     /// ```
-    pub fn new_indexable<I, S>(column_names: I) -> Self
+    pub fn new_indexable<I, S>(column_names: I, default_column: &str) -> Self
     where
         I: IntoIterator<Item = S>,
         S: Into<Arc<str>>,
     {
-        let columns = column_names.into_iter().enumerate().map(|(i, name)| {
-            let name = name.into();
+        let columns_vec: Vec<Arc<str>> = column_names.into_iter().map(Into::into).collect();
 
-            Column::new(name, move |item: &T| item.get_text(i))
-        });
+        let columns = columns_vec
+            .iter()
+            .enumerate()
+            .map(|(i, name)| Column::new(name.clone(), move |item: &T| item.get_text(i)));
 
-        Self::new(columns, 0)
+        // Find the index of the default column
+        let default_index = columns_vec
+            .iter()
+            .position(|name| name.as_ref() == default_column)
+            .unwrap_or(0); // fallback to 0 if not found
+
+        Self::new(columns, default_index)
     }
 }

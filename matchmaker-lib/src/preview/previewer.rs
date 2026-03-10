@@ -1,5 +1,5 @@
 use ansi_to_tui::IntoText;
-use cli_boilerplate_automation::broc::{CommandExt, EnvVars};
+use cba::broc::{CommandExt, EnvVars};
 use futures::FutureExt;
 use log::{debug, error, warn};
 use ratatui::text::{Line, Text};
@@ -209,9 +209,7 @@ impl Previewer {
                                     leftover = rest.to_vec();
                                 }
 
-                                if !leftover.is_empty()
-                                    && !lines.is_expired(&guard)
-                                {
+                                if !leftover.is_empty() && !lines.is_expired(&guard) {
                                     match leftover.into_text() {
                                         Ok(text) => {
                                             for line in text {

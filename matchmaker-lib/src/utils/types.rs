@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use cli_boilerplate_automation::define_either;
+use cba::define_either;
 use ratatui::text::Text;
 
 use crate::utils::text::text_to_string;

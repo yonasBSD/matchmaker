@@ -11,11 +11,13 @@
 ### Pick
 
 Event Loop:
+
 - Recieve Event(Bind, Crossterm, Event)
 - Match to Action(Payload)
 - Send to Renderer
 
 Renderer:
+
 - Process each action and event in the recieved batch
 - Process Interrupts
   - Execute builtin effects (restart, exit tui)
@@ -26,6 +28,7 @@ Renderer:
 - Process all effects by invoking attached handlers
 
 Previewer:
+
 - Dynamic handler listens to QueryChange Event
 - Recieve PreviewerMessage, emitted from a dynamic handler
 - Spawn a process to read the stdout of the specified command into the message
@@ -44,4 +47,5 @@ For example, the `Preview(bat {})` command generates a `PreviewChanged` event, a
 For more specific requirements, the set of actions can be extended with a type implementing `ActionExt`, on which a handler with mutable access to the UI state can be registered. Additionally, [`PickOptions`](./src/matchmaker.rs#L417) also supports registering an [`ext_aliaser`](./src/matchmaker.rs#L481-L484) which can be used transform actions before they are processed.
 
 ### State
+
 All of the customizable handlers take a `MMState`, which contains data and mutable access to the picker, such as the input text, header text, the matcher worker, and all UI configuration options.

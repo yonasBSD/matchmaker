@@ -2,9 +2,9 @@ use crate::action::{Action, ActionExt, NullActionExt};
 use crate::binds::BindMap;
 use crate::message::{BindDirective, Event, RenderCommand};
 use anyhow::Result;
-use cli_boilerplate_automation::bait::ResultExt;
-use cli_boilerplate_automation::bath::PathExt;
-use cli_boilerplate_automation::unwrap;
+use cba::bait::ResultExt;
+use cba::bath::PathExt;
+use cba::unwrap;
 use crokey::{Combiner, KeyCombination, KeyCombinationFormat, key};
 use crossterm::event::{
     Event as CrosstermEvent, EventStream, KeyModifiers, MouseEvent, MouseEventKind,
@@ -179,7 +179,7 @@ impl<A: ActionExt> EventLoop<A> {
         let mut interval = time::interval(self.tick_interval);
 
         if let Some(path) = self.key_file.clone() {
-            log::error!("Cleaning up temp files @ {path:?}");
+            log::debug!("Cleaning up temp files @ {path:?}");
             tokio::spawn(async move {
                 cleanup_tmp_files(&path).await._elog();
             });

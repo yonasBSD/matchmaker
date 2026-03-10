@@ -10,7 +10,6 @@ Future goals include reaching full feature-parity with fzf, enhanced multi-colum
 - fzf has some features like tracking the current item through query changes or displaying all results -- these will eventually be implemented but are low priority.
 - Matchmaker supports similar system for event-triggered binds, and dynamic rebinding, but does not yet support fzf's --transform feature, which can trigger configuration changes based the output of shell scripts -- this is on the cards and will probably implemented in a different way. More importantly, I haven't tested this system too much myself, preferring to write more complicated logic using the library directly so I can't vouch for which approach is better.
 
-
 This has been a solo project so far, but contributions are very welcome! Anything from sample configurations, to documentation, feature suggestions, bug reports, even just your opinions on it will be very much appreciated.
 
 Here is an example configuration file to give you a sense of what matchmaker supports. Of course, a better course of action is just to download and try it!

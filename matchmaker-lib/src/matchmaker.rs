@@ -5,7 +5,7 @@ use std::{
 };
 
 use arrayvec::ArrayVec;
-use cli_boilerplate_automation::{bath::PathExt, broc::CommandExt, env_vars};
+use cba::{bath::PathExt, broc::CommandExt, env_vars};
 use easy_ext::ext;
 use log::{debug, info, warn};
 use ratatui::text::Text;
@@ -56,7 +56,6 @@ pub struct Matchmaker<T: SSS, S: Selection = T> {
 // ----------- MAIN -----------------------
 
 pub struct OddEnds {
-    pub formatter: Arc<RenderFn<ConfigMMItem>>,
     pub splitter: SplitterFn<Either<String, Text<'static>>>,
     pub hidden_columns: Vec<bool>,
 }
@@ -96,9 +95,9 @@ impl ConfigMatchmaker {
                         .map(|s| Arc::from(s.name.as_str()))
                         .collect()
                 };
-                Worker::new_indexable(names)
+                Worker::new_indexable(names, &worker_config.default_column)
             }
-            Split::None => Worker::new_indexable([""]),
+            Split::None => Worker::new_indexable([""], ""),
         };
 
         #[cfg(feature = "experimental")]
@@ -158,7 +157,6 @@ impl ConfigMatchmaker {
 
         let event_handlers = EventHandlers::new();
         let interrupt_handlers = InterruptHandlers::new();
-        let formatter = Arc::new(worker.default_format_fn::<true>(|item| item.to_cow()));
 
         let new = Matchmaker {
             worker,
@@ -171,7 +169,6 @@ impl ConfigMatchmaker {
         };
 
         let misc = OddEnds {
-            formatter,
             splitter,
             hidden_columns,
         };
@@ -565,24 +562,55 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> Default for PickOptions<'a, T, S, A
 
 // ----------- ATTACHMENTS ------------------
 
-impl<T: SSS, S: Selection> Matchmaker<T, S> {
+pub type AttachmentFormatter<T, S> = Either<
+    Arc<RenderFn<T>>,
+    for<'a, 'b, 'c> fn(&'a MMState<'b, 'c, T, S>, &'a str, Option<&dyn Fn(String)>) -> String,
+>;
+
+pub fn use_formatter<T: SSS, S: Selection>(
+    formatter: &AttachmentFormatter<T, S>,
+    state: &MMState<'_, '_, T, S>,
+    template: &str,
+    repeat: Option<&dyn Fn(String)>,
+) -> String {
+    if template.is_empty() {
+        return String::new();
+    }
+    match formatter {
+        Either::Left(f) => {
+            if let Some(t) = state.current_raw() {
+                f(t, template)
+            } else {
+                String::new()
+            }
+        }
+        Either::Right(f) => f(state, template, repeat),
+    }
+}
+
+// todo: this static bound shouldn't be necessary on S i don't know why its needed
+impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
     // technically we don't need concurrency but the cost should be negligable
     /// Causes [`Action::Print`] to print to stdout.
     pub fn register_print_handler(
         &mut self,
         print_handle: AppendOnly<String>,
         output_separator: String,
-        formatter: Arc<RenderFn<T>>,
+        formatter: AttachmentFormatter<T, S>,
     ) {
         self.register_interrupt_handler(Interrupt::Print, move |state| {
-            if let Some(t) = state.current_raw() {
-                let s = formatter(t, state.payload());
+            let template = state.payload().clone();
+            let repeat = |s: String| {
                 if atty::is(atty::Stream::Stdout) {
                     print_handle.push(s);
                 } else {
                     print!("{}{}", s, output_separator);
                 }
             };
+            let s = use_formatter(&formatter, state, &template, Some(&repeat));
+            if !s.is_empty() {
+                repeat(s)
+            }
         });
     }
 
@@ -590,16 +618,51 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     /// Note:
     /// - not intended for direct use.
     /// - Assumes preview and cmd formatter are the same.
-    pub fn register_execute_handler(&mut self, formatter: Arc<RenderFn<T>>) {
+    pub fn register_execute_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
+        let _formatter = formatter.clone();
         self.register_interrupt_handler(Interrupt::Execute, move |state| {
-            let template = state.payload();
-            if !template.is_empty()
-                && let Some(t) = state.current_raw()
-            {
-                let cmd = formatter(t, template);
+            let template = state.payload().clone();
+            if !template.is_empty() {
+                let cmd = use_formatter(&formatter, state, &template, None);
+                if cmd.is_empty() {
+                    return;
+                }
                 let mut vars = state.make_env_vars();
 
-                let preview_cmd = formatter(t, state.preview_payload());
+                let preview_template = state.preview_payload().clone();
+                let preview_cmd = use_formatter(&formatter, state, &preview_template, None);
+                let extra = env_vars!(
+                    "FZF_PREVIEW_COMMAND" => preview_cmd,
+                );
+                vars.extend(extra);
+
+                if let Some(mut child) = Command::from_script(&cmd)
+                    .envs(vars)
+                    .stdin(maybe_tty())
+                    ._spawn()
+                {
+                    match child.wait() {
+                        Ok(i) => {
+                            info!("Command [{cmd}] exited with {i}")
+                        }
+                        Err(e) => {
+                            info!("Failed to wait on command [{cmd}]: {e}")
+                        }
+                    }
+                }
+            };
+        });
+        self.register_interrupt_handler(Interrupt::ExecuteSilent, move |state| {
+            let template = state.payload().clone();
+            if !template.is_empty() {
+                let cmd = use_formatter(&_formatter, state, &template, None);
+                if cmd.is_empty() {
+                    return;
+                }
+                let mut vars = state.make_env_vars();
+
+                let preview_template = state.preview_payload().clone();
+                let preview_cmd = use_formatter(&_formatter, state, &preview_template, None);
                 let extra = env_vars!(
                     "FZF_PREVIEW_COMMAND" => preview_cmd,
                 );
@@ -627,16 +690,18 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     /// Note:
     /// - not intended for direct use.
     /// - Assumes preview and cmd formatter are the same.
-    pub fn register_become_handler(&mut self, formatter: Arc<RenderFn<T>>) {
+    pub fn register_become_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
         self.register_interrupt_handler(Interrupt::Become, move |state| {
-            let template = state.payload();
-            if !template.is_empty()
-                && let Some(t) = state.current_raw()
-            {
-                let cmd = formatter(t, template);
+            let template = state.payload().clone();
+            if !template.is_empty() {
+                let cmd = use_formatter(&formatter, state, &template, None);
+                if cmd.is_empty() {
+                    return;
+                }
                 let mut vars = state.make_env_vars();
 
-                let preview_cmd = formatter(t, state.preview_payload());
+                let preview_template = state.preview_payload().clone();
+                let preview_cmd = use_formatter(&formatter, state, &preview_template, None);
                 let extra = env_vars!(
                     "FZF_PREVIEW_COMMAND" => preview_cmd,
                 );
@@ -651,10 +716,10 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
 
 /// Causes the program to display a preview of the active result.
 /// The Previewer can be connected to [`Matchmaker`] using [`PickOptions::previewer`]
-pub fn make_previewer<T: SSS, S: Selection>(
+pub fn make_previewer<T: SSS, S: Selection + 'static>(
     mm: &mut Matchmaker<T, S>,
     previewer_config: PreviewerConfig, // note: help_str is provided separately so help_colors is ignored
-    formatter: Arc<RenderFn<T>>,
+    formatter: AttachmentFormatter<T, S>,
     help_str: Text<'static>,
 ) -> Previewer {
     // initialize previewer
@@ -664,11 +729,13 @@ pub fn make_previewer<T: SSS, S: Selection>(
     // preview handler
     mm.register_event_handler(Event::CursorChange | Event::PreviewChange, move |state, _| {
             if state.preview_visible() &&
-            let Some(t) = state.current_raw() &&
-            let m = state.preview_payload() &&
+            let m = state.preview_payload().clone() &&
             !m.is_empty()
             {
-                let cmd = formatter(t, m);
+                let cmd = use_formatter(&formatter, state, &m, None);
+                if cmd.is_empty() {
+                    return;
+                }
                 let mut envs = state.make_env_vars();
                 let extra = env_vars!(
                     "COLUMNS" => state.previewer_area().map_or("0".to_string(), |r| r.width.to_string()),
