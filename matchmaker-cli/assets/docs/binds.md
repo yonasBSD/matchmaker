@@ -37,10 +37,10 @@ Semantic aliases are abstract triggers that are resolved to physical keys at sta
 
 For example, if your configuration defines an alias `open = "enter"`, then:
 
-- A bind to `::open` will behave exactly like a bind to `enter`.
+- An action bound to `::open` will be bound to the `enter` key.
 - If you change the `open` alias to `alt-o`, all binds using `::open` automatically move to `alt-o`.
 
-This allows you to define "intent-based" bindings that remain consistent even if you change your preferred physical keys.
+This allows you to define "intent-based" bindings that remain consistent independent of your preferred physical keys -- useful for sharing!
 
 **Example:**
 `::open = "Accept"` (Bind the semantic 'open' trigger to the Accept action)
@@ -141,7 +141,7 @@ Actions are the operations performed when a trigger is activated.
 | ----------------- | --------------------------------------------------------------------- |
 | `Filtering(bool)` | Enable or disable query filtering.                                    |
 | `CycleSort`       | Cycle through result sorting modes (`Full`/ `Mixed` / `None`).        |
-| `NextReload(idx)` | Reload using the next command in `matcher.start.additional_commands`. |
+| `ReloadNext(idx)` | Reload using the next command in `matcher.start.additional_commands`. |
 | `Overlay(idx)`    | Activate the UI overlay at index `idx`.                               |
 | `Redraw`          | Force a complete UI redraw.                                           |
 
@@ -163,8 +163,8 @@ When overriding binds from the command line, use the `b` (or `binds`) prefix:
 mm b 'alt-enter=Accept'
 
 # Bind multiple actions to one key:
-mm b 'ctrl-s=[Select Down]'
+mm b.ctrl-s='Select Down'
 
-# Use nested dot notation for clarity:
-mm b.ctrl-q 'Quit(0)'
+# Some action parameters are optional
+mm b.ctrl-q 'SwitchPreview'
 ```

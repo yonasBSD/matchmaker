@@ -848,7 +848,7 @@ impl ResultsUI {
             RowConnectionStyle::Full => full_width,
             _ => self.width,
         } as usize;
-        let expanded = expand_indents(substituted_line, r"\s", effective_width)
+        let expanded = expand_indents(substituted_line, r"\s", r"\S", effective_width)
             .style(status_config.fg)
             .add_modifier(status_config.modifier);
 

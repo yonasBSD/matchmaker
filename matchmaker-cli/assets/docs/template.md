@@ -156,7 +156,8 @@ The following variables are available and must be prefixed with a backslash (`\`
 
 ### Alignment
 
-Use `\s` to insert flexible whitespace for alignment.
+Use `\s` and `\S` to insert flexible whitespace for alignment.
 
 - A single `\s` will expand to fill the remaining width of the terminal, pushing subsequent text to the right.
 - If multiple `\s` are used, the available space is distributed equally between them.
+- `\S` increases the distribution denominator without adding any whitespace.

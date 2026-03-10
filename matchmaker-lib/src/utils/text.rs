@@ -289,14 +289,23 @@ pub fn scrub_text_styles(text: &mut Text<'_>) {
 }
 
 /// Expand `placeholder` inside a Line and distribute spaces to reach `target_width`.
-pub fn expand_indents<'a>(input: Line<'a>, placeholder: &str, target_width: usize) -> Line<'a> {
+pub fn expand_indents<'a>(
+    input: Line<'a>,
+    placeholder: &str,
+    ignored_placeholder: &str,
+    target_width: usize,
+) -> Line<'a> {
     let mut count = 0;
     let mut base_width = 0;
 
     // Compute display width excluding placeholders
     for span in &input.spans {
         count += span.content.matches(placeholder).count();
-        for segment in span.content.split(placeholder) {
+        count += span.content.matches(ignored_placeholder).count();
+
+        // Split on both placeholders
+        let tmp = span.content.replace(ignored_placeholder, "");
+        for segment in tmp.split(placeholder) {
             base_width += segment.width();
         }
     }

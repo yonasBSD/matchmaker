@@ -12,9 +12,7 @@ use crate::{
     utils::serde::{escaped_opt_char, escaped_opt_string, serde_duration_ms},
 };
 
-use cba::serde::transform::{
-    camelcase_normalized, camelcase_normalized_option,
-};
+use cba::serde::transform::{camelcase_normalized, camelcase_normalized_option};
 use ratatui::{
     style::{Color, Modifier, Style},
     text::Span,
@@ -51,7 +49,7 @@ pub struct WorkerConfig {
     pub sort_threshold: u32,
     /// The name of the default column
     #[partial(alias = "i")]
-    pub default_column: String,
+    pub default_column: Option<String>,
 
     /// TODO: Enable raw mode where non-matching items are also displayed in a dimmed color.
     #[partial(alias = "r")]
@@ -83,7 +81,7 @@ pub struct StartConfig {
     /// Default command to execute when stdin is not being read.
     #[partial(alias = "cmd", alias = "x")]
     pub command: String,
-    /// (cli only) Additional command which can be cycled through using Action::NextReload
+    /// (cli only) Additional command which can be cycled through using Action::ReloadNext
     #[partial(alias = "ax")]
     pub additional_commands: Vec<String>,
     pub sync: bool,

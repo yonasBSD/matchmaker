@@ -1,8 +1,6 @@
 use std::str::FromStr;
 
-use cba::{
-    bait::ResultExt, bring::split::split_whitespace_preserving_nesting, unwrap,
-};
+use cba::{bait::ResultExt, bring::split::split_whitespace_preserving_nesting, unwrap};
 use log::error;
 use matchmaker::{
     Action, ConfigMMInnerItem, ConfigMMItem,
@@ -33,7 +31,7 @@ pub enum MMAction {
     Filtering(Option<bool>),
     /// Cycle result sorting between None, Partial, and Full
     CycleSort,
-    NextReload(Option<usize>),
+    ReloadNext(Option<usize>),
 
     // set
     /// Set header
@@ -123,7 +121,7 @@ pub fn action_handler(
             // todo
         }
 
-        MMAction::NextReload(x) => {
+        MMAction::ReloadNext(x) => {
             let payload = match x {
                 None => {
                     additional_commands.1 =
@@ -134,7 +132,7 @@ pub fn action_handler(
                     if x < additional_commands.0.len() {
                         &additional_commands.0[x]
                     } else {
-                        error!("Index {x} is out of bounds for NextReload");
+                        error!("Index {x} is out of bounds for ReloadNext");
                         return;
                     }
                 }
@@ -231,7 +229,7 @@ enum_from_str_display! {
     ;
 
     options:
-    SetPrompt, SetHeader, SetFooter, SetStatus, Filtering, NextReload;
+    SetPrompt, SetHeader, SetFooter, SetStatus, Filtering, ReloadNext;
 
     lossy:
     ;
