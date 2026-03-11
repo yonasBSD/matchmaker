@@ -52,6 +52,11 @@ pub struct Config {
     #[serde(default)]
     #[partial(attr, alias = "e")]
     pub exit: ExitConfig,
+
+    #[serde(default)]
+    #[partial(attr, alias = "c")]
+    /// How columns are parsed from input lines
+    pub columns: ColumnsConfig,
 }
 
 // -----------------------

@@ -36,7 +36,7 @@ show = true
 wrap = true
 
 [[preview.layout]]
-command = "fs :tool lessfilter preview {}"
+command = "fs :tool lessfilter preview []"
 side = "right"
 percentage = 40
 min = 30
@@ -89,8 +89,8 @@ max = 50
 
 # Programmable
 "ctrl-l" = "Execute(eval $FZF_PREVIEW_COMMAND | $PAGER)"
-"ctrl-o" = "Execute($EDITOR {})"
-"alt-o" = "Become($EDITOR {})"
+"ctrl-o" = "Execute($EDITOR [])"
+"alt-o" = "Become($EDITOR [])"
 "ctrl-r" = "Reload(find . -type f)"
 
 [matcher]

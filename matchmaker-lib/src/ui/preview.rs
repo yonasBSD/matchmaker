@@ -186,7 +186,7 @@ impl PreviewUI {
         self.config.wrap
     }
     pub fn offset(&self) -> usize {
-        self.config.scroll.header_lines + self.offset
+        self.config.initial.header_lines + self.offset
     }
     pub fn target_line(&self) -> Option<usize> {
         self.target
@@ -241,7 +241,7 @@ impl PreviewUI {
             return;
         };
 
-        target += self.config.scroll.offset;
+        target += self.config.initial.offset;
 
         self.target = Some(if target < 0 {
             line_count.saturating_sub(target.unsigned_abs())
@@ -267,7 +267,7 @@ impl PreviewUI {
         // The resulting height up to the top of target should >= p% of height.
         let mut lines_above =
             self.config
-                .scroll
+                .initial
                 .percentage
                 .complement()
                 .compute_clamped(self.area.height, 0, 0);
@@ -311,7 +311,7 @@ impl PreviewUI {
 
         let mut lines = Vec::with_capacity(height);
 
-        for _ in 0..self.config.scroll.header_lines.min(height) {
+        for _ in 0..self.config.initial.header_lines.min(height) {
             if let Some(line) = results.next() {
                 lines.push(line);
             } else {
@@ -321,7 +321,7 @@ impl PreviewUI {
 
         let mut results = results.skip(self.offset);
 
-        for _ in self.config.scroll.header_lines..height {
+        for _ in self.config.initial.header_lines..height {
             if let Some(line) = results.next() {
                 lines.push(line);
             }

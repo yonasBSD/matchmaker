@@ -181,12 +181,16 @@ Actions are the operations performed when a trigger is activated.
 
 ### UI Customization
 
-| Action         | Description                                           |
-| -------------- | ----------------------------------------------------- |
-| `SetHeader(s)` | Update the header content.                            |
-| `SetFooter(s)` | Update the footer content.                            |
-| `SetPrompt(s)` | Update the input prompt (supports styling templates). |
-| `SetStatus(s)` | Update the status line template.                      |
+| Action               | Description                |
+| -------------------- | -------------------------- |
+| `SetHeader(s)`       | Update the header content. |
+| `SetFooter(s)`       | Update the footer content. |
+| `SetPrompt(s)`       | Update the input prompt.   |
+| `SetStatus(s)`       | Update the status line.*   |
+| `SetStyledPrompt(s)` | Update the input prompt.*  |
+| `SetStyledStatus(s)` | Update the status line.*   |
+
+\* See --templates
 
 ### Programmable
 
@@ -269,40 +273,39 @@ command = '''rg --column --line-number --no-heading --color=always --smart-case 
 ansi = true
 
 [binds]
-
 "Start" = "::enter_rg"
 "::enter_rg" = [ # Reload on query change, disable reparsing, update bind
 "Filtering(false)",
 '''Bind(QueryChange = Reload)''',
+# Prompt indicator (
+'''Transform(
+    [[ -n "$MM_QUERY" ]] &&
+    prompt="($MM_QUERY)" ||
+    prompt="rg>"
 
-    # Prompt indicator (
-    '''Transform(
-        [[ -n "$MM_QUERY" ]] &&
-        prompt="($MM_QUERY)" ||
-        prompt="rg>"
-
-        echo "SetPrompt($prompt> )"
-        echo "Store($MM_QUERY)"
-        echo "SetQuery($MM_STORE)"
-    )''',
-    "Bind(::reload = ::enter_mm)",
-
+    echo "SetPrompt($prompt )"
+    echo "SetQuery($MM_STORE)"
+    echo "Store($MM_QUERY)"
+)''',
+"Bind(::reload = ::enter_mm)",
 ]
 "::enter_mm" = [
 "Filtering(true)",
 "Unbind(QueryChange)",
-"Bind(::reload = ::enter_rg)",
 '''Transform(
-[[-n "$MM_QUERY"]] &&
-prompt="($MM_QUERY)" ||
-prompt="mm>"
+	[[ -n "$MM_QUERY" ]] &&
+	prompt="($MM_QUERY)" ||
+	prompt="mm"
 
-        echo "SetPrompt(\{blue,italic:$prompt })"
-        echo "Store($MM_QUERY)"
-        echo "SetQuery($MM_STORE)"
-    )''',
-
+    echo "SetPrompt({blue,italic:$prompt })"
+    echo "SetQuery($MM_STORE)"
+    echo "Store($MM_QUERY)"
+)
+''',
+"Bind(::reload = ::enter_rg)"
 ]
 
 "ctrl-r" = "::reload"
 ```
+
+This example is simplified to demonstrate the special Bind/Store/Transform/Semantic actions. You can find a more powerful version [here](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/rg.toml).

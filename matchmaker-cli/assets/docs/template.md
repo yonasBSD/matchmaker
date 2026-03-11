@@ -1,27 +1,29 @@
 # Matchmaker Templating Rules
 
 Matchmaker uses a template system for formatting output and executing commands.
-Templates use `{}` placeholders with various modifiers to inject item data.
+Templates use `[]` placeholders with various modifiers to inject item data.
 
 ## Modifiers
 
 | Modifier | Description                                        |
 | -------- | -------------------------------------------------- |
-| `{}`     | Current item (shell-quoted)                        |
-| `{=}`    | Current item (no quotes)                           |
-| `{+}`    | All selected items (shell-quoted, space-separated) |
-| `{-}`    | All selected items (no quotes, space-separated)    |
+| `[]`     | Current item (shell-quoted)                        |
+| `[=]`    | Current item (no quotes)                           |
+| `[+]`    | All selected items (shell-quoted, space-separated) |
+| `[-]`    | All selected items (no quotes, space-separated)    |
 
 ## Column Specifics
 
-You can specify a column by its index (0-based) or by its name.
+You can specify a column by its name or its index (**1-indexed**).
+
+Note that when no columns.names are given in the configuration, columns.max column names (1..n) are auto-generated.
 
 | Placeholder | Description                                       |
 | ----------- | ------------------------------------------------- |
-| `{col}`     | Column `col` of current item (shell-quoted)       |
-| `{=col}`    | Column `col` of current item (raw)                |
-| `{+col}`    | Column `col` of all selected items (shell-quoted) |
-| `{-col}`    | Column `col` of all selected items (raw)          |
+| `[col]`     | Column `col` of current item (shell-quoted)       |
+| `[=col]`    | Column `col` of current item (raw)                |
+| `[+col]`    | Column `col` of all selected items (shell-quoted) |
+| `[-col]`    | Column `col` of all selected items (raw)          |
 
 ## Active Column
 
@@ -29,10 +31,10 @@ The active column is the one under the cursor in the input field (contolled via 
 
 | Placeholder | Description                                        |
 | ----------- | -------------------------------------------------- |
-| `{!}`       | Active column of current item (shell-quoted)       |
-| `{=!}`      | Active column of current item (raw)                |
-| `{+!}`      | Active column of all selected items (shell-quoted) |
-| `{-!}`      | Active column of all selected items (raw)          |
+| `[!]`       | Active column of current item (shell-quoted)       |
+| `[=!]`      | Active column of current item (raw)                |
+| `[+!]`      | Active column of all selected items (shell-quoted) |
+| `[-!]`      | Active column of all selected items (raw)          |
 
 ## Ranges
 
@@ -40,16 +42,21 @@ Ranges allow you to conveniently join multiple columns together.
 
 | Placeholder    | Description                                                |
 | -------------- | ---------------------------------------------------------- |
-| `{col1..col2}` | Columns from `col1` to `col2` (exclusive), space-separated |
-| `{col..}`      | From column `col` to the end                               |
-| `{..col}`      | From the first column to `col` (exclusive)                 |
-| `{..}`         | All visible columns                                        |
+| `[col1..col2]` | Columns from `col1` to `col2` (exclusive), space-separated |
+| `[col..]`      | From column `col` to the end                               |
+| `[..col]`      | From the first column to `col` (exclusive)                 |
+| `[..]`         | All visible columns                                        |
 
 Modifiers (`=`, `+`, `-`) can also be applied to ranges:
 
-- `{=..}`: All visible columns of current item (no quotes)
-- `{+..}`: All visible columns of all selected items (shell-quoted per item)
-- `{-..}`: All visible columns of all selected items (no quotes)
+- `[=..]`: All visible columns of current item (no quotes)
+- `[+..]`: All visible columns of all selected items (shell-quoted per item)
+- `[-..]`: All visible columns of all selected items (no quotes)
+
+## Rules
+
+- **Escaping**: `\[` can be used to escape the starting bracket if you need a literal `[`.
+- **Whitespace**: Bracket contents beginning with whitespace (e.g., `[ ]`) are not treated as placeholders and are left as literal text.
 
 ## Examples
 
@@ -57,11 +64,11 @@ Modifiers (`=`, `+`, `-`) can also be applied to ranges:
 
 #### Custom Preview Command
 
-Use `{}` to pass the current item to a previewer like `bat` or `eza`.
+Use `[]` to pass the current item to a previewer like `bat` or `eza`.
 
 ```toml
 [[preview.layout]]
-    command = "bat --color=always {} || eza -T {}"
+    command = "bat --color=always [] || eza -T []"
 ```
 
 #### Keybindings with Shell Execution
@@ -70,9 +77,9 @@ You can bind keys to run shell commands.
 
 ```toml
 [binds]
-    "ctrl-o" = "Execute($EDITOR {})"     # Open in editor and return to matchmaker
-    "alt-o"  = "Become($EDITOR {})"      # Open in editor and exit matchmaker
-    "ctrl-y" = "Execute(echo -n {} | xclip -sel clip)" # Copy to clipboard
+    "ctrl-o" = "Execute($EDITOR [])"     # Open in editor and return to matchmaker
+    "alt-o"  = "Become($EDITOR [])"      # Open in editor and exit matchmaker
+    "ctrl-y" = "Execute(echo -n [] | xclip -sel clip)" # Copy to clipboard
 ```
 
 #### Output Formatting
@@ -81,7 +88,7 @@ Change how the selected item is printed to stdout when you press enter.
 
 ```toml
 [start]
-    output_template = "Selected: {}"
+    output_template = "Selected: []"
 ```
 
 ### Command Line (CLI)
@@ -91,7 +98,7 @@ Change how the selected item is printed to stdout when you press enter.
 Wrap the output in single quotes for use in shell scripts.
 
 ```bash
-find . | mm o "'{}'"
+find . | mm o "'[]'"
 ```
 
 #### Multi-Column Preview
@@ -99,25 +106,25 @@ find . | mm o "'{}'"
 If your input has columns (e.g., from `ls -l`), you can preview a specific column.
 
 ```bash
-ls -l | mm d " +" m.max_columns=9 px "echo 'File: {=8}'" h.header_lines 1 m.default_column 8 h.content="|||"
+ls -l | mm d " +" m.max_columns=9 px "echo 'File: [=9]'" h.header_lines 1 m.default_column 9 h.content="|||"
 ```
 
-_Note: `{=8}` uses the raw value of the 8th column (index 9)._
+_Note: `[=9]` uses the unquoted value of the 9th column (index 9)._
 
 #### Active Column
 
-The `{!}` placeholder refers to the column currently under focus (specified by `%column_name` in your query).
+The `[!]` placeholder refers to the column currently under focus (specified by `%column_name` in your query).
 
 ```bash
-mm px "[echo 'You are currently filtering on: {!}']"
+mm px "echo 'You are currently filtering on: [!]'"
 ```
 
 #### Ranges
 
-Join multiple columns together. `{2..}` joins the 3rd column to the end.
+Join multiple columns together. `[2..]` joins the 2nd column to the end.
 
 ```bash
-ls -l | mm d "[ +]" h.h 1 px "[echo 'Metadata: {=2..}']"
+ls -l | mm d "[ +]" h.h 1 px "echo 'Metadata: [=2..]'"
 ```
 
 _Note: `h.h` is short for `header.header_lines`._
@@ -128,16 +135,17 @@ Execute a command with all selected items when pressing a custom key.
 
 ```bash
 touch a b
-mm b.ctrl-x "ExecuteSilent(rm {+}) Reload" x ls # Delete items then reload
+mm b.ctrl-x "ExecuteSilent(rm [+]) Reload" x ls # Delete items then reload
 ```
 
-## Status Line Templates
+## Status Line and Input Prompt Templates
 
-The status line (when dynamically set via the `SetStatus(template)` action) supports styling, dynamic variables, and alignment.
+The status line supports dynamic variables, and alignment.
+With the `SetStyledStatus` action, it, along with the input prompt (by `SetStyledPrompt`), also supports styling.
 
 ### Styling
 
-You can style parts of the status line using the `{color:text}` syntax.
+You can style parts of the status line and input prompt using the `{color:text}` syntax.
 
 - `{red:Error:}` renders "Error:" in red.
 - `{blue:Matchmaker}` renders "Matchmaker" in blue.

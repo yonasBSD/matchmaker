@@ -1,0 +1,65 @@
+[input]
+prompt_fg = "Red"
+
+[start]
+command = '''rg --column --line-number --no-heading --color=always --smart-case "$FZF_QUERY"'''
+ansi = true
+
+[columns]
+max = 3
+split = '^(.*?):(\d+:\d+):(.*)$'
+default = 3
+
+[results]
+
+[[preview.layout]]
+command = 'line=[2]; bat --color=always --highlight-line ${line%%:*} [1]'
+border = { type = "LightDoubleDashed", color = "DarkGray" }
+side = "top"
+percentage = 50
+
+[preview]
+show = true
+scroll.percentage = 70
+scroll.index = 2
+
+[binds]
+"Start" = "::enter_rg"
+"::enter_rg" = [ # Reload on query change, disable reparsing, update bind
+"Filtering(false)",
+'''Bind(QueryChange = Reload)''',
+# Prompt indicator (
+'''Transform(
+    [[ -n "$MM_QUERY" ]] &&
+    prompt="($MM_QUERY)" ||
+    prompt="rg>"
+
+    echo "SetStyledPrompt($prompt )"
+    echo "SetQuery($MM_STORE)"
+    echo "Store($MM_QUERY)"
+)''',
+"Bind(::reload = ::enter_mm)",
+]
+"::enter_mm" = [
+"Filtering(true)",
+"Unbind(QueryChange)",
+'''Transform(
+	[[ -n "$MM_QUERY" ]] &&
+	prompt="($MM_QUERY)" ||
+	prompt="mm"
+
+    echo "SetStyledPrompt({blue,italic:$prompt })"
+    echo "SetQuery($MM_STORE)"
+    echo "Store($MM_QUERY)"
+    echo "SwitchColumn(1)"
+)
+''',
+"Bind(::reload = ::enter_rg)"
+]
+
+"ctrl-r" = "::reload"
+
+# Navigation
+"ctrl-." = "NextColumn"
+"enter" = "Become($EDITOR [3])"
+"?" = "SwitchPreview"

@@ -14,8 +14,8 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 - Interactive preview supports color, scrolling, wrapping, multiple layouts, and even maximizing.
 - Most of the familiar actions from [fzf](https://github.com/junegunn/fzf), as well as several new ones[^12].
 - Mouse (location aware) scrolling! Horizontal scrolling! Grapheme-aware input wrapping!
-- Split input lines into multiple columns, that you can individually filter on (using the syntax: `%col query`), hide, and highlight.[^14]
-- Define `Execute/Preview/Print/Accept` actions based on the current item using [Templating](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) (yes, columns are supported here too).
+- Split input lines into multiple columns, that you can individually filter on (`%col query`[^17]), hide, and highlight.[^14]
+- Define `Execute/Preview/Print/Accept` actions with [templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) which _safely_ inject the current item(s) (yes, columns are supported here too).
 - All the dynamic UI support you could hope for: preview offsets, styled status lines, responsive header tables, wrapped footers, active and inactive column colors, stacked columns, multiple preview layouts[^15]... even overlays! (in the library).
 - Bind keys to multiple actions, bind actions to mouse triggers, bind actions to event triggers, bind keys to rebind keys, bind keys to modify the configuration, bind keys to run a shell script and use its output to more keys[^16], bind keys to set the header, footer, status, input, bind keys to semantic triggers, bind semantic triggers to actions, bind keys to -- wait nope thats about it.
 - oh yeah, and `mm --last-key` gives you the last key that was pressed in a previous run of the program.[^13]
@@ -38,6 +38,8 @@ On the way:
 [^15]: I like this so much i had to mention it twice
 
 [^16]: you can't do this yet
+
+[^17]: (See)[https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/query.md]
 
 ## Installation
 

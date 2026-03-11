@@ -152,7 +152,7 @@ impl DisplayUI {
 
                     Cell::from(ret.transform_if(
                         matches!(
-                            self.config.row_connection_style,
+                            self.config.row_connection,
                             RowConnectionStyle::Disjoint
                         ),
                         |r| r.style(style),
@@ -189,7 +189,7 @@ impl DisplayUI {
             .column_spacing(col_spacing)
             .transform_if(
                 !matches!(
-                    self.config.row_connection_style,
+                    self.config.row_connection,
                     RowConnectionStyle::Disjoint
                 ),
                 |t| t.style(style),

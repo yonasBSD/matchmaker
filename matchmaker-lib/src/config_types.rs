@@ -1,8 +1,6 @@
 use std::fmt;
 
-use cba::{
-    bird::one_or_many, define_restricted_wrapper, define_transparent_wrapper,
-};
+use cba::{bird::one_or_many, define_transparent_wrapper};
 use ratatui::widgets::Borders;
 
 use regex::Regex;
@@ -158,11 +156,11 @@ impl<'de> Deserialize<'de> for Padding {
 
 // ---------------------------------------------------------------------------------
 
-define_restricted_wrapper!(
-    #[derive(Clone, serde::Serialize, serde::Deserialize)]
-    #[serde(transparent)]
-    FormatString: String
-);
+// define_restricted_wrapper!(
+//     #[derive(Clone, serde::Serialize, serde::Deserialize)]
+//     #[serde(transparent)]
+//     FormatString: String
+// );
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -379,4 +377,54 @@ where
     deserializer.deserialize_string(GenericVisitor {
         _marker: std::marker::PhantomData,
     })
+}
+
+// ----------------------------------------------------------------------------
+define_transparent_wrapper!(
+    #[derive(Clone, Eq, Serialize)]
+    StringValue: String
+
+);
+
+impl<'de> Deserialize<'de> for StringValue {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct Visitor;
+
+        impl<'de> de::Visitor<'de> for Visitor {
+            type Value = StringValue;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a string, number, or bool")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E> {
+                Ok(StringValue(v.to_owned()))
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E> {
+                Ok(StringValue(v))
+            }
+
+            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E> {
+                Ok(StringValue(v.to_string()))
+            }
+
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E> {
+                Ok(StringValue(v.to_string()))
+            }
+
+            fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E> {
+                Ok(StringValue(v.to_string()))
+            }
+
+            fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E> {
+                Ok(StringValue(v.to_string()))
+            }
+        }
+
+        deserializer.deserialize_any(Visitor)
+    }
 }

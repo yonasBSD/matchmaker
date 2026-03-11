@@ -46,41 +46,47 @@ fn format_cli_inner(
     item_override: Option<&ConfigMMInnerItem>,
 ) -> String {
     let mut result = String::with_capacity(template.len());
-    let mut chars = template.chars().peekable();
+    let mut chars = template.char_indices().peekable();
 
-    while let Some(c) = chars.next() {
+    while let Some((i, c)) = chars.next() {
         if c == '\\' {
-            // only escape '{'
-            if let Some(&next) = chars.peek() {
-                if next == '{' {
+            if let Some(&(_, next)) = chars.peek() {
+                if next == '[' {
                     chars.next();
-                    result.push('{');
+                    result.push('[');
                     continue;
                 }
             }
-            result.push(c);
+            result.push('\\');
             continue;
         }
 
-        if c == '{' {
-            let mut key = String::new();
-            let mut found_end = false;
-            while let Some(&nc) = chars.peek() {
-                if nc == '}' {
-                    chars.next();
-                    found_end = true;
+        if c == '[' {
+            let start = chars.peek().map(|(i, _)| *i).unwrap_or(template.len());
+            let mut end = None;
+
+            while let Some((j, nc)) = chars.next() {
+                if nc == ']' {
+                    end = Some(j);
                     break;
                 }
-                key.push(chars.next().unwrap());
             }
 
-            if found_end {
-                result.push_str(&process_key(&key, state, item_override));
+            if let Some(end) = end {
+                let key = &template[start..end];
+
+                if key.starts_with(|c: char| c.is_whitespace() || c == '[') {
+                    result.push('[');
+                    result.push_str(key);
+                    result.push(']');
+                } else {
+                    result.push_str(&process_key(key, state, item_override));
+                }
             } else {
-                // unmatched '{'
-                result.push('{');
-                result.push_str(&key);
+                result.push_str(&template[i..]);
+                break;
             }
+
             continue;
         }
 
@@ -96,18 +102,21 @@ fn any_non_multi(template: &str) -> bool {
     while let Some(c) = chars.next() {
         if c == '\\' {
             if let Some(&next) = chars.peek() {
-                if next == '{' {
+                if next == '[' {
                     chars.next();
                 }
             }
             continue;
         }
 
-        if c == '{' {
+        if c == '[' {
             let mut key = String::new();
             while let Some(&nc) = chars.peek() {
-                if nc == '}' {
+                if nc == ']' {
                     chars.next();
+                    if key.starts_with(|c: char| c.is_whitespace() || c == '[') {
+                        break;
+                    }
                     if !key.starts_with('+') && !key.starts_with('-') {
                         return true;
                     }
@@ -198,14 +207,12 @@ fn get_val<'a>(
             item.to_cow()
         } else {
             // Try to use key as column index or name
-            let col_idx = key.parse::<usize>().ok().or_else(|| {
-                state
-                    .picker_ui
-                    .worker
-                    .columns
-                    .iter()
-                    .position(|c| c.name.as_ref() == key)
-            });
+            let col_idx = state
+                .picker_ui
+                .worker
+                .columns
+                .iter()
+                .position(|c| c.name.as_ref() == key);
 
             if let Some(idx) = col_idx {
                 if let Some(col) = state.picker_ui.worker.columns.get(idx) {
@@ -335,18 +342,16 @@ fn handle_range<'a, 'b>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use matchmaker::config::{ExitConfig, RenderConfig, TerminalConfig, WorkerConfig};
-    use matchmaker::nucleo::injector::{Injector, PreprocessOptions};
+    use matchmaker::config::{ColumnsConfig, TerminalConfig};
+    use matchmaker::nucleo::injector::Injector;
     use matchmaker::nucleo::nucleo::{Config as NucleoConfig, Matcher};
     use matchmaker::render::State;
     use matchmaker::ui::UI;
     use tokio::sync::mpsc;
 
     fn setup_test_mm() -> (matchmaker::ConfigMatchmaker, matchmaker::ConfigInjector) {
-        let render_config = RenderConfig::default();
-        let tui_config = TerminalConfig::default();
-        let mut worker_config = WorkerConfig::default();
-        worker_config.columns.names = vec![
+        let mut columns_config = ColumnsConfig::default();
+        columns_config.names = vec![
             matchmaker::config::ColumnSetting {
                 name: "col1".to_string(),
                 filter: true,
@@ -363,17 +368,16 @@ mod tests {
                 hidden: false,
             },
         ];
-        worker_config.columns.split =
+        columns_config.split =
             matchmaker::config::Split::Delimiter(regex::Regex::new(",").unwrap());
-        let exit_config = ExitConfig::default();
-        let preprocess_config: PreprocessOptions = (false, false);
 
         let (mm, injector, _misc) = matchmaker::ConfigMatchmaker::new_from_config(
-            render_config,
-            tui_config,
-            worker_config,
-            exit_config,
-            preprocess_config,
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            columns_config,
+            Default::default(),
+            Default::default(),
         );
         (mm, injector)
     }

@@ -652,7 +652,7 @@ impl ResultsUI {
                             // NOTE: hscroll is handled in worker.results -> render_cell
                         }
 
-                        match self.config.row_connection_style {
+                        match self.config.row_connection {
                             RowConnectionStyle::Disjoint => {
                                 if is_active_col {
                                     t = t.style(if is_current_row {
@@ -696,7 +696,7 @@ impl ResultsUI {
                 let mut row = Row::new(row_texts).height(height);
 
                 if self.is_current(i) {
-                    match self.config.row_connection_style {
+                    match self.config.row_connection {
                         RowConnectionStyle::Capped => {
                             row = row.style(self.inactive_current_style())
                         }
@@ -741,7 +741,7 @@ impl ResultsUI {
                     let is_active_col = active_column == x;
                     let is_current_row = self.is_current(i);
 
-                    match self.config.row_connection_style {
+                    match self.config.row_connection {
                         RowConnectionStyle::Disjoint => {
                             if is_active_col {
                                 col = col.style(if is_current_row {
@@ -772,7 +772,7 @@ impl ResultsUI {
                     // push
                     let mut row = Row::new(vec![col]).height(height);
                     if is_current_row {
-                        match self.config.row_connection_style {
+                        match self.config.row_connection {
                             RowConnectionStyle::Capped => {
                                 row = row.style(self.inactive_current_style())
                             }
@@ -818,7 +818,7 @@ impl ResultsUI {
         )
         .column_spacing(self.config.column_spacing.0);
 
-        table = match self.config.row_connection_style {
+        table = match self.config.row_connection {
             RowConnectionStyle::Full => table.style(self.active_style()),
             RowConnectionStyle::Capped => table.style(self.inactive_style()),
             _ => table,
@@ -853,7 +853,7 @@ impl ResultsUI {
         let substituted_line = Line::from(new_spans);
 
         // sub whitespace expansions
-        let effective_width = match self.status_config.row_connection_style {
+        let effective_width = match self.status_config.row_connection {
             RowConnectionStyle::Full => full_width,
             _ => self.width,
         } as usize;
@@ -865,6 +865,7 @@ impl ResultsUI {
 
     pub fn set_status_line(&mut self, template: Option<Line<'static>>) {
         let status_config = &self.status_config;
+        log::trace!("status line: {template:?}");
 
         self.status_template = template
             .unwrap_or(status_config.template.clone().into())

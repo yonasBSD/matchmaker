@@ -29,7 +29,7 @@ use crate::{
 // UI
 pub struct UI {
     pub layout: Option<TerminalLayoutSettings>,
-    pub area: Rect, // unused
+    area: Rect, // unused
     pub config: UiConfig,
 }
 
@@ -54,9 +54,21 @@ impl UI {
             .into()
         }
 
+        let ui_area = [
+            tui.area.width.saturating_sub(config.ui.border.width()),
+            tui.area.height.saturating_sub(config.ui.border.height()),
+        ];
+
+        let area = Rect {
+            x: tui.area.x + config.ui.border.left(),
+            y: tui.area.y + config.ui.border.top(),
+            width: ui_area[0],
+            height: ui_area[1],
+        };
+
         let ui = Self {
             layout: tui.config.layout.clone(),
-            area: tui.area,
+            area,
             config: config.ui,
         };
 
@@ -71,10 +83,6 @@ impl UI {
         );
         picker.results.hidden_columns(hidden_columns);
 
-        let ui_area = [
-            tui.area.width.saturating_sub(ui.config.border.width()),
-            tui.area.height.saturating_sub(ui.config.border.height()),
-        ];
         let preview = if let Some(view) = view {
             Some(PreviewUI::new(view, config.preview, ui_area))
         } else {
@@ -87,19 +95,39 @@ impl UI {
     }
 
     pub fn update_dimensions(&mut self, area: Rect) {
-        self.area = area;
+        let border = &self.config.border;
+
+        self.area = Rect {
+            x: area.x + border.left(),
+            y: area.y + border.top(),
+            width: area.width.saturating_sub(border.width()),
+            height: area.height.saturating_sub(border.height()),
+        };
     }
 
     pub fn make_ui(&self) -> ratatui::widgets::Block<'_> {
         self.config.border.as_block()
     }
 
-    pub fn inner_area(&self, area: &Rect) -> Rect {
+    pub fn area(&self) -> Rect {
+        self.area
+    }
+
+    pub fn compute_area(&self, area: &Rect) -> Rect {
         Rect {
             x: area.x + self.config.border.left(),
             y: area.y + self.config.border.top(),
             width: area.width.saturating_sub(self.config.border.width()),
             height: area.height.saturating_sub(self.config.border.height()),
+        }
+    }
+
+    pub fn full_area(&self) -> Rect {
+        Rect {
+            x: self.area.x - self.config.border.left(),
+            y: self.area.y - self.config.border.top(),
+            width: self.area.width + self.config.border.width(),
+            height: self.area.height + self.config.border.height(),
         }
     }
 }

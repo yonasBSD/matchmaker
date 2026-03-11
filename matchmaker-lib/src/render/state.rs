@@ -260,15 +260,12 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
         self.preview_ui.as_ref().map(|ui| &ui.area)
     }
 
-    pub fn ui_area(&self) -> &Rect {
-        &self.ui.area
+    pub fn tui_area(&self) -> Rect {
+        self.ui.full_area()
     }
     pub fn ui_size(&self) -> [u16; 2] {
-        let q = &self.ui.area;
-        [
-            q.width.saturating_sub(self.ui.config.border.width()),
-            q.height.saturating_sub(self.ui.config.border.width()),
-        ]
+        let q = &self.ui.area();
+        [q.width, q.height]
     }
 
     pub fn current_item(&self) -> Option<S> {
@@ -328,16 +325,16 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
 
     pub fn make_env_vars(&self) -> EnvVars {
         env_vars! {
-            "FZF_LINES" => self.ui_area().height.to_string(),
-            "FZF_COLUMNS" => self.ui_area().width.to_string(),
+            "FZF_LINES" => self.tui_area().height.to_string(),
+            "FZF_COLUMNS" => self.tui_area().width.to_string(),
             "FZF_TOTAL_COUNT" => self.status().item_count.to_string(),
             "FZF_MATCH_COUNT" => self.status().matched_count.to_string(),
             "FZF_SELECT_COUNT" => self.selections().len().to_string(),
             "FZF_POS" => get_current(self.picker_ui).map_or("".to_string(), |x| format!("{}", x.0)),
             "FZF_QUERY" => self.input.clone(),
 
-            "MM_LINES" => self.ui_area().height.to_string(),
-            "MM_COLUMNS" => self.ui_area().width.to_string(),
+            "MM_LINES" => self.tui_area().height.to_string(),
+            "MM_COLUMNS" => self.tui_area().width.to_string(),
             "MM_TOTAL_COUNT" => self.status().item_count.to_string(),
             "MM_MATCH_COUNT" => self.status().matched_count.to_string(),
             "MM_SELECT_COUNT" => self.selections().len().to_string(),

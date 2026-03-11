@@ -19,7 +19,7 @@ static ALIASES: &[(&str, &str)] = &[
     ("a", "start.ansi"),
     ("t", "start.trim"),
     //
-    ("d", "matcher.split"),
+    ("d", "columns.split"),
     //
     ("px", "preview.layout.command"),
     ("P", "preview.layout"),

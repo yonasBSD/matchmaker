@@ -155,6 +155,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         tui,
         previewer,
         matcher: MatcherConfig { matcher, worker },
+        columns,
         binds,
         start:
             StartConfig {
@@ -188,8 +189,13 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         OddEnds {
             splitter,
             hidden_columns,
+            has_error,
         },
-    ) = Matchmaker::new_from_config(render, tui, worker, exit, preprocess);
+    ) = Matchmaker::new_from_config(render, tui, worker, columns, exit, preprocess);
+
+    if has_error {
+        return Err(MatchError::Abort(1));
+    }
     // make previewer
     let help_str = display_binds(&event_loop.binds, Some(&previewer.help_colors));
     let cli_formatter = Either::Right(

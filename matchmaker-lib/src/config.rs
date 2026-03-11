@@ -41,15 +41,9 @@ pub struct MatcherConfig {
 #[serde(default)]
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct WorkerConfig {
-    #[partial(recurse)]
-    #[serde(flatten)]
-    /// How columns are parsed from input lines
-    pub columns: ColumnsConfig,
     /// How "stable" the results are. Higher values prioritize the initial ordering.
     pub sort_threshold: u32,
     /// The name of the default column
-    #[partial(alias = "i")]
-    pub default_column: Option<String>,
 
     /// TODO: Enable raw mode where non-matching items are also displayed in a dimmed color.
     #[partial(alias = "r")]
@@ -206,6 +200,7 @@ pub struct InputConfig {
     // text styles
     #[serde(deserialize_with = "camelcase_normalized")]
     pub fg: Color,
+    pub bg: Color,
     // #[serde(deserialize_with = "transform_uppercase")]
     pub modifier: Modifier,
 
@@ -234,6 +229,7 @@ impl Default for InputConfig {
         Self {
             border: Default::default(),
             fg: Default::default(),
+            bg: Default::default(),
             modifier: Default::default(),
             prompt_fg: Default::default(),
             prompt_bg: Default::default(),
@@ -249,7 +245,11 @@ impl Default for InputConfig {
 
 impl InputConfig {
     pub fn text_style(&self) -> Style {
-        Style::default().fg(self.fg).add_modifier(self.modifier)
+        Style::default()
+            .fg(self.fg)
+            .bg(self.bg)
+            .remove_modifier(Modifier::all())
+            .add_modifier(self.modifier)
     }
 
     pub fn prompt_style(&self) -> Style {
@@ -357,7 +357,7 @@ pub struct ResultsConfig {
     /// Capped: The inactive styles are applied per row, and the active styles applied on the active column.
     /// Full: Inactive column styles are ignored, the current style is applied on the current row.
     #[serde(deserialize_with = "camelcase_normalized")]
-    pub row_connection_style: RowConnectionStyle,
+    pub row_connection: RowConnectionStyle,
 
     // scroll
     #[partial(alias = "c")]
@@ -411,12 +411,12 @@ impl Default for ResultsConfig {
             bg: Default::default(),
 
             inactive_fg: Default::default(),
-            inactive_modifier: Modifier::DIM,
+            inactive_modifier: Default::default(),
             inactive_bg: Default::default(),
 
-            inactive_current_fg: Default::default(),
+            inactive_current_fg: Color::DarkGray,
             inactive_current_modifier: Default::default(),
-            inactive_current_bg: Default::default(),
+            inactive_current_bg: Color::Black,
 
             match_fg: Color::Green,
             match_modifier: Modifier::ITALIC,
@@ -424,7 +424,7 @@ impl Default for ResultsConfig {
             current_fg: Default::default(),
             current_bg: Color::Black,
             current_modifier: Modifier::BOLD,
-            row_connection_style: RowConnectionStyle::Disjoint,
+            row_connection: RowConnectionStyle::Capped,
 
             scroll_wrap: true,
             scroll_padding: 2,
@@ -473,7 +473,7 @@ pub struct StatusConfig {
     /// - Full: available whitespace is computed using the full ui width when replacing `\s` in the template.
     /// - Disjoint: no effect.
     /// - Capped: no effect.
-    pub row_connection_style: RowConnectionStyle,
+    pub row_connection: RowConnectionStyle,
 }
 impl Default for StatusConfig {
     fn default() -> Self {
@@ -484,7 +484,7 @@ impl Default for StatusConfig {
             show: true,
             match_indent: true,
             template: r#"\m/\t"#.to_string(),
-            row_connection_style: RowConnectionStyle::Full,
+            row_connection: RowConnectionStyle::Full,
         }
     }
 }
@@ -527,7 +527,7 @@ pub struct DisplayConfig {
     /// # Note
     /// The width effect only applies on the footer, and when the content is singular.
     #[serde(deserialize_with = "camelcase_normalized")]
-    pub row_connection_style: RowConnectionStyle,
+    pub row_connection: RowConnectionStyle,
 
     /// (cli only) This setting controls how many lines are read from the input for display with the header.
     #[partial(alias = "h")]
@@ -541,7 +541,7 @@ impl Default for DisplayConfig {
             match_indent: true,
             fg: Color::Green,
             wrap: false,
-            row_connection_style: Default::default(),
+            row_connection: Default::default(),
             modifier: Modifier::ITALIC, // whatever your `deserialize_modifier` default uses
             content: None,
             header_lines: 0,
@@ -566,16 +566,17 @@ impl Default for DisplayConfig {
 /// ```
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct PreviewConfig {
     #[partial(recurse)]
     pub border: BorderSetting,
     #[partial(recurse, set = "recurse")]
     #[partial(alias = "l")]
     pub layout: Vec<PreviewSetting>,
+    #[serde(alias = "scroll")]
     #[partial(recurse)]
-    #[serde(flatten)]
-    pub scroll: PreviewScrollSetting,
+    #[partial(alias = "i")]
+    pub initial: PreviewInitialSetting,
     /// Whether to cycle to top after scrolling to the bottom and vice versa.
     #[partial(alias = "c")]
     #[serde(alias = "cycle")]
@@ -595,7 +596,7 @@ impl Default for PreviewConfig {
                 padding: Padding(ratatui::widgets::Padding::left(2)),
                 ..Default::default()
             },
-            scroll: Default::default(),
+            initial: Default::default(),
             layout: Default::default(),
             scroll_wrap: true,
             wrap: Default::default(),
@@ -609,10 +610,10 @@ impl Default for PreviewConfig {
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct PreviewScrollSetting {
+pub struct PreviewInitialSetting {
     /// Extract the initial display index `n` of the preview window from this column.
     /// `n` lines are skipped after the header lines are consumed.
-    pub index: Option<String>,
+    pub index: Option<StringValue>,
     /// For adjusting the initial scroll index.
     #[partial(alias = "o")]
     pub offset: isize,
@@ -624,7 +625,7 @@ pub struct PreviewScrollSetting {
     pub header_lines: usize,
 }
 
-impl Default for PreviewScrollSetting {
+impl Default for PreviewInitialSetting {
     fn default() -> Self {
         Self {
             index: Default::default(),
@@ -823,6 +824,7 @@ impl Default for TerminalLayoutSettings {
 
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct PreviewSetting {
     #[serde(flatten)]
     #[partial(recurse)]
@@ -835,6 +837,7 @@ pub struct PreviewSetting {
 
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct PreviewLayout {
     pub side: Side,
     /// Percentage of total rows/columns to occupy.
@@ -850,7 +853,7 @@ impl Default for PreviewLayout {
         Self {
             side: Side::Right,
             percentage: Percentage::new(60),
-            min: 30,
+            min: 15,
             max: 120,
         }
     }
@@ -870,12 +873,16 @@ pub struct ColumnsConfig {
     /// Maximum number of columns to autogenerate when names is unspecified. Maximum of 16, minimum of 1.
     #[serde(deserialize_with = "bounded_usize::<_, 1, {crate::MAX_SPLITS}>")]
     #[partial(alias = "mc")]
-    max_columns: usize,
+    max: usize,
+    #[partial(alias = "i")]
+    pub default: Option<StringValue>,
+    /// When autogenerating column names, start from 0 instead of 1.
+    pub names_from_zero: bool,
 }
 
 impl ColumnsConfig {
     pub fn max_cols(&self) -> usize {
-        self.max_columns.min(MAX_SPLITS).max(1)
+        self.max.min(MAX_SPLITS).max(1)
     }
 }
 
@@ -884,7 +891,9 @@ impl Default for ColumnsConfig {
         Self {
             split: Default::default(),
             names: Default::default(),
-            max_columns: 6,
+            max: 6,
+            default: None,
+            names_from_zero: false,
         }
     }
 }

@@ -110,9 +110,11 @@
 
 [matcher]
     trim                = true
-    columns.split       = '\s+'
-    columns.max_columns = 8
     sort_threshold      = 1
+
+[columns]
+split       = '\s+'
+max = 8
 
 [start]
     command = "fd"

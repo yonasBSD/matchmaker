@@ -167,7 +167,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 }
                 RenderCommand::Resize(area) => {
                     tui.resize(area);
-                    ui.area = area;
+                    ui.update_dimensions(area);
                 }
                 RenderCommand::Refresh => {
                     tui.redraw();
@@ -351,13 +351,13 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             }
                         }
                         Action::PreviewHalfPageUp => {
-                            let n = (ui.area.height + 1) / 2;
+                            let n = (ui.area().height + 1) / 2;
                             if let Some(p) = preview_ui.as_mut() {
                                 p.down(n)
                             }
                         }
                         Action::PreviewHalfPageDown => {
-                            let n = (ui.area.height + 1) / 2;
+                            let n = (ui.area().height + 1) / 2;
                             if let Some(p) = preview_ui.as_mut() {
                                 p.down(n)
                             }
@@ -450,7 +450,11 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
                         // Columns
                         Action::SwitchColumn(col_name) => {
-                            if worker.columns.iter().any(|c| *c.name == col_name) {
+                            let cursor_byte = input.byte_index(input.cursor() as usize);
+
+                            if worker.query.active_column_name(cursor_byte) != &col_name
+                                && worker.columns.iter().any(|c| *c.name == col_name)
+                            {
                                 input.prepare_column_change();
                                 input.push_str(&format!("%{} ", col_name));
                             } else {
@@ -459,20 +463,17 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
                         Action::NextColumn | Action::PrevColumn => {
                             let cursor_byte = input.byte_index(input.cursor() as usize);
-                            let active_col_name = worker.query.active_column(cursor_byte);
-                            let active_idx = active_col_name.and_then(|name| {
-                                worker.columns.iter().position(|c| c.name == *name)
-                            });
+                            let active_idx = worker.query.active_column_index(cursor_byte);
 
                             let num_columns = worker.columns.len();
                             if num_columns > 0 {
                                 input.prepare_column_change();
 
                                 let mut next_idx = match action {
-                                    Action::NextColumn => active_idx.map(|x| x + 1).unwrap_or(0),
-                                    Action::PrevColumn => active_idx
-                                        .map(|x| (x + num_columns - 1) % num_columns)
-                                        .unwrap_or(num_columns - 1),
+                                    Action::NextColumn => active_idx + 1,
+                                    Action::PrevColumn => {
+                                        active_idx + num_columns - 1 % num_columns
+                                    }
                                     _ => unreachable!(),
                                 } % num_columns;
 
@@ -552,7 +553,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
                         Action::Overlay(index) => {
                             if let Some(x) = overlay_ui.as_mut() {
-                                x.enable(index, &ui.area);
+                                x.enable(index, &ui.area());
                                 tui.redraw();
                             };
                         }
@@ -667,12 +668,13 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             .draw(|frame| {
                 let mut area = frame.area();
 
+                // mutates area!
                 render_ui(frame, &mut area, &ui);
 
                 let mut _area = area;
 
                 let full_width_footer = footer_ui.single()
-                    && footer_ui.config.row_connection_style == RowConnectionStyle::Full;
+                    && footer_ui.config.row_connection == RowConnectionStyle::Full;
 
                 let mut footer =
                     if full_width_footer || preview_ui.as_ref().is_none_or(|p| !p.visible()) {
@@ -715,7 +717,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     picker_ui.results.update_dimensions(&results);
                     picker_ui.input.update_width(input.width);
                     footer_ui.update_width(
-                        if footer_ui.config.row_connection_style == RowConnectionStyle::Capped {
+                        if footer_ui.config.row_connection == RowConnectionStyle::Capped {
                             area.width
                         } else {
                             footer.width
@@ -730,7 +732,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 };
 
                 cursor_y_offset = render_input(frame, input, &mut picker_ui.input).y;
-                render_status(frame, status, &picker_ui.results, ui.area.width);
+                render_status(frame, status, &picker_ui.results, ui.area().width);
                 render_results(frame, results, &mut picker_ui, &mut click);
                 render_display(frame, header, &mut picker_ui.header, &picker_ui.results);
                 render_display(frame, footer, &mut footer_ui, &picker_ui.results);
@@ -854,10 +856,7 @@ fn render_results<T: SSS, S: Selection>(
     ui: &mut PickerUI<T, S>,
     click: &mut Click,
 ) {
-    let cap = matches!(
-        ui.results.config.row_connection_style,
-        RowConnectionStyle::Capped
-    );
+    let cap = matches!(ui.results.config.row_connection, RowConnectionStyle::Capped);
     let (widget, table_width) = ui.make_table(click);
 
     if cap {
@@ -906,10 +905,11 @@ fn render_display(frame: &mut Frame, area: Rect, ui: &mut DisplayUI, results_ui:
     }
 }
 
+// a bit weird, do we want mutable, do we want &mut ui, whatever this is simplest
 fn render_ui(frame: &mut Frame, area: &mut Rect, ui: &UI) {
     let widget = ui.make_ui();
     frame.render_widget(widget, *area);
-    *area = ui.inner_area(area);
+    *area = ui.compute_area(area);
 }
 
 fn split(rect: &mut Rect, height: u16, cut_top: bool) -> Rect {

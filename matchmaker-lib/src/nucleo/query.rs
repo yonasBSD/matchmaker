@@ -162,7 +162,7 @@ impl PickerQuery {
     /// of a column's text. See the `active_column_test` unit test below for examples.
     ///
     /// `cursor` is a byte index that represents the location of the prompt's cursor.
-    pub fn active_column(&self, cursor: usize) -> Option<&Arc<str>> {
+    pub fn current_column(&self, cursor: usize) -> Option<&Arc<str>> {
         let point = self
             .column_ranges
             .partition_point(|(range, _field)| cursor > range.end);
@@ -173,10 +173,16 @@ impl PickerQuery {
             .and_then(|(_range, field)| field.as_ref())
     }
 
+    pub fn active_column_name(&self, cursor: usize) -> &str {
+        self.current_column(cursor)
+            .map(|s| s.as_ref())
+            .unwrap_or_else(|| self.column_names[self.primary_column].as_ref())
+    }
+
     /// Finds the index of the column which the cursor is 'within' in the last parse.
     /// Returns the primary column index if no specific column is active at the cursor.
     pub fn active_column_index(&self, cursor: usize) -> usize {
-        self.active_column(cursor)
+        self.current_column(cursor)
             .and_then(|name| self.column_names.iter().position(|c| c == name))
             .unwrap_or(self.primary_column)
     }

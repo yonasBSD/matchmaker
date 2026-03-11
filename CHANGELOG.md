@@ -16,11 +16,12 @@
 - Cleaner help display
 - Column styles
 - Finalize templating
-- `matcher.start.default_column` and `matcher.start.additional_commands`
+- `start.default_column` and `start.additional_commands`
 - ExecuteSilent action
 - various bugfixes and documentation
 
 ### Performance
+
 - Streamline AppendOnly (preview synchronization) using arc-swap
 
 ## [0.0.10] - 2026-03-07

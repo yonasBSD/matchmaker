@@ -787,4 +787,80 @@ mod tests {
         assert_eq!(output_str, "abcdefmat↵\nch");
         assert_eq!(width, 10);
     }
+
+    #[test]
+    fn test_wrap_edge_case_6_chars_width_5() {
+        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("", "123456");
+        let snapshot = nucleo.snapshot();
+        let item = snapshot.get_item(0).unwrap();
+
+        let cell = Text::from("123456");
+        let highlight = Style::default().fg(Color::Red);
+
+        let (result_text, width) = render_cell(
+            cell,
+            0,
+            &snapshot,
+            &item,
+            &mut matcher,
+            highlight,
+            5,
+            &mut buffer,
+            None,
+            0,
+        );
+
+        let output_str = text_to_string(&result_text);
+        // Expecting "1234↵" and "56"
+        assert_eq!(output_str, "1234↵\n56");
+        assert_eq!(width, 5);
+    }
+
+    #[test]
+    fn test_wrap_edge_case_path_column() {
+        // Path "zoxide.rs" (9 chars). Width limit 9.
+        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("", "zoxide.rs");
+        let snapshot = nucleo.snapshot();
+        let item = snapshot.get_item(0).unwrap();
+
+        let cell = Text::from("zoxide.rs");
+        let highlight = Style::default().fg(Color::Red);
+
+        let (result_text, width) = render_cell(
+            cell.clone(),
+            0,
+            &snapshot,
+            &item,
+            &mut matcher,
+            highlight,
+            9, // Limit is exactly the length
+            &mut buffer,
+            None,
+            0,
+        );
+
+        let output_str = text_to_string(&result_text);
+        assert_eq!(output_str, "zoxide.rs");
+        assert_eq!(width, 9);
+
+        // Path "zoxide.rs" (9 chars). Width limit 8.
+        let (result_text, width) = render_cell(
+            cell,
+            0,
+            &snapshot,
+            &item,
+            &mut matcher,
+            highlight,
+            8, // Limit is one less than length
+            &mut buffer,
+            None,
+            0,
+        );
+
+        let output_str = text_to_string(&result_text);
+        // If it doesn't wrap, it should be "zoxide.rs" but width 9
+        // If it wraps, it should be "zoxide.↵\nrs"
+        assert_eq!(output_str, "zoxide.↵\nrs");
+        assert_eq!(width, 8);
+    }
 }

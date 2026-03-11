@@ -18,16 +18,16 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 error() {
-	echo -e "${RED}Error: $1${NC}" >&2
+	printf "%b\n" "${RED}Error: $1${NC}" >&2
 	exit 1
 }
 
 info() {
-	echo -e "${GREEN}$1${NC}"
+	printf "%b\n" "${GREEN}$1${NC}"
 }
 
 warn() {
-	echo -e "${YELLOW}$1${NC}"
+	printf "%b\n" "${YELLOW}$1${NC}"
 }
 
 # Detect OS and architecture

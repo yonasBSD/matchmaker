@@ -1,10 +1,10 @@
-use std::{io::Read, process::Command, str::FromStr};
+use std::{process::Command, str::FromStr};
 
 use cba::{
     StringError, bait::ResultExt, bring::split::split_on_unescaped_delimiter, broc::CommandExt,
     unwrap,
 };
-use log::error;
+use log::{debug, error, warn};
 use matchmaker::{
     Action, Actions, ConfigMMInnerItem, ConfigMMItem,
     binds::Trigger,
@@ -41,10 +41,14 @@ pub enum MMAction {
     SetHeader(Option<String>),
     /// Set footer
     SetFooter(Option<String>),
-    /// Set prompt
+    /// Set status without interpreting style braces
     SetPrompt(Option<String>),
-    /// Set status
+    /// Set prompt
+    SetStyledPrompt(String),
+    /// Set status without interpreting style braces
     SetStatus(Option<String>),
+    /// Set status
+    SetStyledStatus(String),
 
     /// Accept current selection and print using output_template
     Accept,
@@ -180,14 +184,23 @@ pub fn action_handler(
                 state.footer_ui.clear(false);
             }
         }
-        MMAction::SetPrompt(s) => {
-            let template = s.as_deref().map(StatusUI::parse_template_to_status_line);
-            state.picker_ui.input.set_prompt(template);
+        MMAction::SetStyledPrompt(s) => {
+            state
+                .picker_ui
+                .input
+                .set_prompt(Some(StatusUI::parse_template_to_status_line(&s)));
+        }
+        MMAction::SetStyledStatus(s) => {
+            state
+                .picker_ui
+                .results
+                .set_status_line(Some(StatusUI::parse_template_to_status_line(&s)));
         }
         MMAction::SetStatus(s) => {
-            let template = s.as_deref().map(StatusUI::parse_template_to_status_line);
-
-            state.picker_ui.results.set_status_line(template);
+            state.picker_ui.results.set_status_line(s.map(Into::into));
+        }
+        MMAction::SetPrompt(s) => {
+            state.picker_ui.input.set_prompt(s.map(Into::into));
         }
         MMAction::ExecuteAsync(s) => {
             state.set_interrupt(Interrupt::ExecuteSilent, s);
@@ -195,24 +208,26 @@ pub fn action_handler(
         MMAction::Transform(payload) => {
             let cmd = format_cli(state, &payload, None);
             if cmd.is_empty() {
-                error!("Failed to format command (make sure : ");
+                // lowpri: sometimes spuriously issued at startup?
+                warn!("Failed to format transform command: {payload}");
                 return;
             }
             let vars = state.make_env_vars();
             let render_tx = render_tx.clone();
-            if let Some(mut stdout) = Command::from_script(&cmd).envs(vars).spawn_piped()._elog() {
-                let mut contents = String::new();
-                if stdout.read_to_string(&mut contents)._elog().is_some() {
-                    log::debug!("Transform output:\n{}", contents);
+            if let Some(mut contents) = Command::from_script(&cmd)
+                .envs(vars)
+                .read_to_string()
+                ._elog()
+            {
+                debug!("Transform output:\n{}", contents);
 
-                    for line in contents.lines() {
-                        match Action::<MMAction>::from_str(line) {
-                            Ok(action) => {
-                                let _ = render_tx.send(RenderCommand::Action(action));
-                            }
-                            Err(_) => {
-                                error!("Failed to parse action from transform output: {}", line);
-                            }
+                for line in contents.lines() {
+                    match Action::<MMAction>::from_str(line) {
+                        Ok(action) => {
+                            let _ = render_tx.send(RenderCommand::Action(action));
+                        }
+                        Err(_) => {
+                            error!("Failed to parse action from transform output: {}", line);
                         }
                     }
                 }
@@ -284,7 +299,7 @@ enum_from_str_display! {
 
 
     tuples:
-    Bind, Unbind, PushBind, PopBind, ExecuteAsync, Transform;
+    Bind, Unbind, PushBind, PopBind, ExecuteAsync, Transform, SetStyledPrompt, SetStyledStatus;
 
     defaults:
     ;
@@ -432,13 +447,13 @@ mod tests {
         assert!(Action::<MMAction>::from_str("Reload").is_ok());
 
         let bind_inner = match Action::<MMAction>::from_str(
-        "Bind(QueryChange = Reload(rg --column --line-number --no-heading --color=always --smart-case \"$FZF_QUERY\"))",
-    )
-    .unwrap()
-    {
-        Action::Custom(MMAction::Bind(s)) => s,
-        _ => panic!(),
-    };
+            "Bind(QueryChange = Reload(rg --column --line-number --no-heading --color=always --smart-case \"$FZF_QUERY\"))",
+        )
+        .unwrap()
+        {
+            Action::Custom(MMAction::Bind(s)) => s,
+            _ => panic!(),
+        };
 
         let (_trigger, actions) = parse_bind_parts(&bind_inner).unwrap();
         assert_eq!(actions.len(), 1);
