@@ -187,9 +187,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 click = Click::ResultPos(mouse.row - result.top());
                             } else if input.contains(pos) {
                                 // The X offset of the start of the visible text relative to the terminal
-                                let text_start_x = input.x
-                                    + picker_ui.input.prompt.width() as u16
-                                    + picker_ui.input.config.border.left();
+                                let text_start_x = input.x + picker_ui.input.left();
 
                                 if pos.x >= text_start_x {
                                     let visual_offset = pos.x - text_start_x;
@@ -437,6 +435,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Action::ExecuteSilent(payload) => {
                             state.set_interrupt(Interrupt::ExecuteSilent, payload);
                         }
+                        Action::Store(payload) => {
+                            state.store_payload = payload;
+                        }
                         Action::Become(payload) => {
                             state.set_interrupt(Interrupt::Become, payload);
                         }
@@ -570,6 +571,10 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             }
                         }
                         Action::Char(c) => picker_ui.input.push_char(c),
+
+                        // unreachable
+                        Action::PrintKey => {}
+                        Action::Semantic(_) => {}
                     }
                 }
                 _ => {}

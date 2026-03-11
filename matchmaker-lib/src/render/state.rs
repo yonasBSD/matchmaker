@@ -31,6 +31,8 @@ pub struct State {
     pub preview_set_payload: Option<String>,
     /// The payload left by [`crate::action::Action::Preview`]
     pub preview_payload: String,
+    /// The payload left by [`crate::action::Action::Store`]
+    pub store_payload: String,
     /// A place to stash the preview visibility when overriding it
     stashed_preview_visibility: Option<bool>,
     /// Setting this to true finishes the picker with the contents of [`Selector`].
@@ -51,6 +53,7 @@ impl State {
             interrupt_payload: String::new(),
 
             preview_payload: String::new(),
+            store_payload: String::new(),
             preview_set_payload: None,
             preview_visible: false,
             stashed_preview_visibility: None,
@@ -332,6 +335,16 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
             "FZF_SELECT_COUNT" => self.selections().len().to_string(),
             "FZF_POS" => get_current(self.picker_ui).map_or("".to_string(), |x| format!("{}", x.0)),
             "FZF_QUERY" => self.input.clone(),
+
+            "MM_LINES" => self.ui_area().height.to_string(),
+            "MM_COLUMNS" => self.ui_area().width.to_string(),
+            "MM_TOTAL_COUNT" => self.status().item_count.to_string(),
+            "MM_MATCH_COUNT" => self.status().matched_count.to_string(),
+            "MM_SELECT_COUNT" => self.selections().len().to_string(),
+            "MM_POS" => get_current(self.picker_ui).map_or("".to_string(), |x| format!("{}", x.0)),
+            "MM_QUERY" => self.input.clone(),
+
+            "MM_STORE" => if self.store_payload.is_empty() { "".into() } else { self.store_payload.clone() },
         }
     }
 

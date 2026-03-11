@@ -80,7 +80,7 @@ impl<A: ActionExt> RenderCommand<A> {
 #[derive(Debug)]
 pub enum BindDirective<A: ActionExt> {
     Bind(Trigger, Actions<A>),
-    PushBind(Trigger, Actions<A>),
+    PushBind(Trigger, Action<A>),
     Unbind(Trigger),
     PopBind(Trigger),
 }

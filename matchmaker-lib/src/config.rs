@@ -195,7 +195,7 @@ impl Default for UiConfig {
     }
 }
 
-/// The input bar ui.
+/// The query (input) bar ui.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
@@ -211,6 +211,7 @@ pub struct InputConfig {
 
     #[serde(deserialize_with = "camelcase_normalized")]
     pub prompt_fg: Color,
+    pub prompt_bg: Color,
     // #[serde(deserialize_with = "transform_uppercase")]
     pub prompt_modifier: Modifier,
 
@@ -235,6 +236,7 @@ impl Default for InputConfig {
             fg: Default::default(),
             modifier: Default::default(),
             prompt_fg: Default::default(),
+            prompt_bg: Default::default(),
             prompt_modifier: Default::default(),
             prompt: "> ".to_string(),
             cursor: Default::default(),
@@ -242,6 +244,19 @@ impl Default for InputConfig {
 
             scroll_padding: true,
         }
+    }
+}
+
+impl InputConfig {
+    pub fn text_style(&self) -> Style {
+        Style::default().fg(self.fg).add_modifier(self.modifier)
+    }
+
+    pub fn prompt_style(&self) -> Style {
+        Style::default()
+            .fg(self.prompt_fg)
+            .bg(self.prompt_bg)
+            .add_modifier(self.prompt_modifier)
     }
 }
 
@@ -358,6 +373,11 @@ pub struct ResultsConfig {
     pub wrap: bool,
     pub min_wrap_width: u16,
 
+    // autoscroll
+    pub autoscroll_initial_preserved: usize,
+    pub autoscroll: bool,
+    pub autoscroll_context: usize,
+
     // ------------
     // experimental
     // ------------
@@ -371,10 +391,6 @@ pub struct ResultsConfig {
     #[partial(alias = "v")]
     #[serde(alias = "vertical")]
     pub stacked_columns: bool,
-
-    pub autoscroll_initial_preserved: usize,
-    pub autoscroll: bool,
-    pub autoscroll_context: usize,
 
     #[serde(alias = "hr")]
     #[serde(deserialize_with = "camelcase_normalized")]
@@ -417,14 +433,14 @@ impl Default for ResultsConfig {
             wrap: Default::default(),
             min_wrap_width: 6,
 
+            autoscroll: true,
+            autoscroll_initial_preserved: 0,
+            autoscroll_context: 4,
+
             column_spacing: Default::default(),
             current_prefix: Default::default(),
             right_align_last: false,
             stacked_columns: false,
-
-            autoscroll: true,
-            autoscroll_initial_preserved: 0,
-            autoscroll_context: 4,
             horizontal_separator: Default::default(),
         }
     }
@@ -436,8 +452,11 @@ impl Default for ResultsConfig {
 pub struct StatusConfig {
     #[serde(deserialize_with = "camelcase_normalized")]
     pub fg: Color,
+    #[serde(deserialize_with = "camelcase_normalized")]
+    pub bg: Color,
     // #[serde(deserialize_with = "transform_uppercase")]
     pub modifier: Modifier,
+
     /// Whether the status is visible.
     pub show: bool,
     /// Indent the status to match the results.
@@ -460,12 +479,22 @@ impl Default for StatusConfig {
     fn default() -> Self {
         Self {
             fg: Color::Green,
+            bg: Default::default(),
             modifier: Modifier::ITALIC,
             show: true,
             match_indent: true,
             template: r#"\m/\t"#.to_string(),
             row_connection_style: RowConnectionStyle::Full,
         }
+    }
+}
+
+impl StatusConfig {
+    pub fn base_style(&self) -> Style {
+        Style::default()
+            .fg(self.fg)
+            .bg(self.bg)
+            .add_modifier(self.modifier)
     }
 }
 

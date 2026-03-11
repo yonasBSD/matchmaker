@@ -99,7 +99,7 @@ find . | mm o "'{}'"
 If your input has columns (e.g., from `ls -l`), you can preview a specific column.
 
 ```bash
-ls -l | mm d "[ +]" m.max_columns=9 px "[echo 'File: {=8}']" h.header_lines 1 m.default_column 8 h.content=""
+ls -l | mm d " +" m.max_columns=9 px "echo 'File: {=8}'" h.header_lines 1 m.default_column 8 h.content="|||"
 ```
 
 _Note: `{=8}` uses the raw value of the 8th column (index 9)._

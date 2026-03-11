@@ -1,9 +1,7 @@
-use std::str::FromStr;
-
 use cba::bring::split::split_on_nesting;
 use ratatui::{
     layout::{Alignment, Rect},
-    style::{Color, Style, Stylize},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Paragraph, Row, Table},
 };
@@ -65,10 +63,8 @@ impl ResultsUI {
             hidden_columns: Default::default(),
 
             status: Default::default(),
-            status_template: Span::from(status_config.template.clone())
-                .style(status_config.fg)
-                .add_modifier(status_config.modifier)
-                .into(),
+            status_template: Line::from(status_config.template.clone())
+                .style(status_config.base_style()),
             status_config,
             config,
 
@@ -862,8 +858,7 @@ impl ResultsUI {
             _ => self.width,
         } as usize;
         let expanded = expand_indents(substituted_line, r"\s", r"\S", effective_width)
-            .style(status_config.fg)
-            .add_modifier(status_config.modifier);
+            .style(status_config.base_style());
 
         Paragraph::new(expanded)
     }
@@ -873,8 +868,7 @@ impl ResultsUI {
 
         self.status_template = template
             .unwrap_or(status_config.template.clone().into())
-            .style(status_config.fg)
-            .add_modifier(status_config.modifier)
+            .style(status_config.base_style())
             .into()
     }
 }
@@ -976,17 +970,107 @@ impl StatusUI {
             if in_nested {
                 let inner = &content[1..content.len() - 1];
 
-                if let Some((color_name, text)) = inner.split_once(':') {
-                    if let Ok(color) = Color::from_str(color_name) {
-                        spans.push(Span::styled(text.to_string(), Style::default().fg(color)));
-                        continue;
-                    }
-                }
+                // perform replacement fg:content
+                spans.push(Self::span_from_template(inner));
+            } else {
+                spans.push(Span::raw(content.to_string()));
             }
-
-            spans.push(Span::raw(content.to_string()));
         }
 
         Line::from(spans)
+    }
+
+    /// Converts a template string into a `Span` with colors and modifiers.
+    ///
+    /// The template string format is:
+    /// ```text
+    /// "style1,style2,...:text"
+    /// ```
+    /// - The **first valid color** token is used as foreground (fg).
+    /// - The **second valid color** token is used as background (bg).
+    /// - Remaining tokens are interpreted as **modifiers**: bold, dim, italic, underlined,
+    ///   slow_blink, rapid_blink, reversed, hidden, crossed_out.
+    /// - Empty tokens are ignored.
+    /// - Unrecognized tokens are collected and logged once at the end.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use matchmaker::ui::StatusUI;
+    /// StatusUI::span_from_template("red,bg=blue,bold,italic:Hello");
+    /// StatusUI::span_from_template("green,,underlined:World");
+    /// StatusUI::span_from_template(",,dim:OnlyDim");
+    /// ```
+    ///
+    /// Returns a `Span` with the specified styles applied to the text.
+    pub fn span_from_template(inner: &str) -> Span<'static> {
+        use std::str::FromStr;
+
+        let (style_part, text) = inner.split_once(':').unwrap_or(("", inner));
+
+        let mut style = Style::default();
+        let mut fg_set = false;
+        let mut bg_set = false;
+        let mut unknown_tokens = Vec::new();
+
+        for token in style_part.split(',') {
+            let token = token.trim();
+            if token.is_empty() {
+                continue;
+            }
+
+            if !fg_set {
+                if let Ok(color) = Color::from_str(token) {
+                    style = style.fg(color);
+                    fg_set = true;
+                    continue;
+                }
+            }
+
+            if !bg_set {
+                if let Ok(color) = Color::from_str(token) {
+                    style = style.bg(color);
+                    bg_set = true;
+                    continue;
+                }
+            }
+
+            match token.to_lowercase().as_str() {
+                "bold" => {
+                    style = style.add_modifier(Modifier::BOLD);
+                }
+                "dim" => {
+                    style = style.add_modifier(Modifier::DIM);
+                }
+                "italic" => {
+                    style = style.add_modifier(Modifier::ITALIC);
+                }
+                "underlined" => {
+                    style = style.add_modifier(Modifier::UNDERLINED);
+                }
+                "slow_blink" => {
+                    style = style.add_modifier(Modifier::SLOW_BLINK);
+                }
+                "rapid_blink" => {
+                    style = style.add_modifier(Modifier::RAPID_BLINK);
+                }
+                "reversed" => {
+                    style = style.add_modifier(Modifier::REVERSED);
+                }
+                "hidden" => {
+                    style = style.add_modifier(Modifier::HIDDEN);
+                }
+                "crossed_out" => {
+                    style = style.add_modifier(Modifier::CROSSED_OUT);
+                }
+                _ => unknown_tokens.push(token.to_string()),
+            };
+        }
+
+        if !unknown_tokens.is_empty() {
+            log::warn!("Unknown style tokens: {:?}", unknown_tokens);
+        }
+
+        Span::styled(text.to_string(), style)
     }
 }

@@ -70,6 +70,41 @@ impl<A: ActionExt> BindMap<A> {
 
         ret
     }
+
+    /// Check for infinite loops in semantic actions.
+    pub fn check_cycles(&self) -> Result<(), String> {
+        for actions in self.values() {
+            for action in actions {
+                if let Action::Semantic(s) = action {
+                    let mut path = Vec::new();
+                    self.dfs_semantic(s, &mut path)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn dfs_semantic(&self, current: &str, path: &mut Vec<String>) -> Result<(), String> {
+        if path.contains(&current.to_string()) {
+            return Err(format!(
+                "Infinite loop detected in semantic actions: {} -> {}",
+                path.join(" -> "),
+                current
+            ));
+        }
+
+        path.push(current.to_string());
+        if let Some(actions) = self.get(&Trigger::Semantic(current.to_string())) {
+            for action in actions {
+                if let Action::Semantic(next) = action {
+                    self.dfs_semantic(next, path)?;
+                }
+            }
+        }
+        path.pop();
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
@@ -208,9 +243,11 @@ impl FromStr for Trigger {
     type Err = String;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
+        // try semantic
         if let Some(s) = value.strip_prefix("::") {
             return Ok(Trigger::Semantic(s.to_string()));
         }
+
         // 1. Try KeyCombination
         if let Ok(key) = KeyCombination::from_str(value) {
             return Ok(Trigger::Key(key));
@@ -240,18 +277,15 @@ impl FromStr for Trigger {
                     "hyper" => modifiers |= KeyModifiers::HYPER,
                     "meta" => modifiers |= KeyModifiers::META,
                     "none" => {}
-                    unknown => {
-                        return Err(format!("Unknown modifier: {}", unknown));
-                    }
+                    unknown => return Err(format!("Unknown modifier: {}", unknown)),
                 }
             }
 
             return Ok(Trigger::Mouse(SimpleMouseEvent { kind, modifiers }));
         }
 
-        // 3. Try Event
-        if let Ok(evt) = value.parse::<Event>() {
-            return Ok(Trigger::Event(evt));
+        if let Ok(event) = value.parse::<Event>() {
+            return Ok(Trigger::Event(event));
         }
 
         Err(format!("failed to parse trigger from '{}'", value))
@@ -391,5 +425,32 @@ mod test {
             modifiers: KeyModifiers::SHIFT,
         });
         assert!(!bind_map.contains_key(&shift_trigger));
+    }
+
+    #[test]
+    fn test_check_cycles() {
+        use crate::bindmap;
+        let bind_map: BindMap = bindmap!(
+            Trigger::Semantic("a".into()) => Action::Semantic("b".into()),
+            Trigger::Semantic("b".into()) => Action::Semantic("a".into()),
+        );
+        assert!(bind_map.check_cycles().is_err());
+
+        let bind_map_no_cycle: BindMap = bindmap!(
+            Trigger::Semantic("a".into()) => Action::Semantic("b".into()),
+            Trigger::Semantic("b".into()) => Action::Print("ok".into()),
+        );
+        assert!(bind_map_no_cycle.check_cycles().is_ok());
+
+        let bind_map_self_cycle: BindMap = bindmap!(
+            Trigger::Semantic("a".into()) => Action::Semantic("a".into()),
+        );
+        assert!(bind_map_self_cycle.check_cycles().is_err());
+
+        let bind_map_indirect_cycle: BindMap = bindmap!(
+            key!(a) => Action::Semantic("foo".into()),
+            Trigger::Semantic("foo".into()) => Action::Semantic("foo".into()),
+        );
+        assert!(bind_map_indirect_cycle.check_cycles().is_err());
     }
 }

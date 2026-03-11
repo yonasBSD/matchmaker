@@ -8,7 +8,7 @@ A trigger is the event that activates a binding. Matchmaker supports keyboard, m
 
 ### Keyboard
 
-Standard key names and combinations are supported. Matchmaker uses a human-friendly format:
+Standard key names and combinations are supported. Matchmaker uses a very human format:
 
 - **Single Keys**: `enter`, `esc`, `space`, `tab`, `backspace`, `up`, `down`, `left`, `right`, `pageup`, `pagedown`, `home`, `end`, `f1` through `f12`.
 - **Characters**: `a`, `b`, `c`, `1`, `2`, `3`, `?`, `/`, etc.
@@ -31,19 +31,70 @@ Mouse events can be bound with modifiers:
 **Example:**
 `alt+scrollup = "Up(5)"` (Bind Alt+ScrollUp to move the cursor up 5 lines)
 
-### Semantic Aliases
+### Semantic Triggers
 
-Semantic aliases are abstract triggers that are resolved to physical keys at startup. They are prefixed with `::`.
+Semantic triggers (prefixed with `::`) act as named aliases for a group of actions. They allow you to define a sequence of operations once and trigger it from multiple keys or events, or even from other actions.
 
-For example, if your configuration defines an alias `open = "enter"`, then:
+**Defining a Semantic Trigger:**
+You define a semantic trigger by binding it to one or more actions in your configuration:
 
-- An action bound to `::open` will be bound to the `enter` key.
-- If you change the `open` alias to `alt-o`, all binds using `::open` automatically move to `alt-o`.
+```toml
+[binds]
+"::my_macro" = [
+    "ExecuteSilent(echo 'Starting...')",
+    "Filtering(false)",
+    "SetPrompt(working> )"
+]
+```
 
-This allows you to define "intent-based" bindings that remain consistent independent of your preferred physical keys -- useful for sharing!
+**Using a Semantic Trigger:**
+You can then "call" this trigger by using it as an action for a key or event:
 
-**Example:**
-`::open = "Accept"` (Bind the semantic 'open' trigger to the Accept action)
+```toml
+[binds]
+"ctrl-x" = "::my_macro"
+"Start"  = "::my_macro"
+```
+
+When sharing a command-line matchmaker command, you can also define your actions using these semantic triggers, allowing consumers to use their preferred binds for similar actions across different applications.
+
+For an advanced example, scroll to the bottom.
+
+_Note: You can also dynamically rebind semantic triggers at runtime using the `Bind` action._
+
+### Events
+
+Actions can be bound to events:
+
+#### Lifecycle
+
+- `Start` – Triggered when the application starts.
+- `Complete` – Triggered when the application is about to exit.
+- `Synced` – Triggered when the matcher completes its first synchronization.
+- `Resynced` – Triggered when the matcher finishes processing the current state again.
+
+#### Input & Cursor
+
+- `QueryChange` – Triggered whenever the input query changes.
+- `CursorChange` – Triggered when the selection cursor moves.
+
+#### Preview & Overlay
+
+- `PreviewChange` – Triggered when the preview content updates.
+- `PreviewSet` – Triggered when preview content is explicitly set.
+- `OverlayChange` – Triggered when the overlay content changes.
+
+#### Window
+
+- `Resize` – Triggered when the terminal window is resized.
+- `Refresh` – Triggered when a full UI redraw occurs.
+
+#### Control
+
+- `Pause` – Triggered when the system enters a paused state.
+- `Resume` – Triggered when execution resumes from a paused state.
+
+Scroll to the bottom for some examples.
 
 ---
 
@@ -101,21 +152,54 @@ Actions are the operations performed when a trigger is activated.
 | `ToggleColumn(col)` | Toggle visibility of the specified column. |
 | `ShowColumn(col)`   | Ensure the specified column is visible.    |
 
-### Input & Editing
+### Input & Search
 
-| Action            | Description                                  |
-| ----------------- | -------------------------------------------- |
-| `ForwardChar`     | Move cursor one character forward.           |
-| `BackwardChar`    | Move cursor one character backward.          |
-| `ForwardWord`     | Move cursor one word forward.                |
-| `BackwardWord`    | Move cursor one word backward.               |
-| `DeleteChar`      | Delete the character under the cursor.       |
-| `DeleteWord`      | Delete the word before the cursor.           |
-| `DeleteLineStart` | Delete from cursor to the start of the line. |
-| `DeleteLineEnd`   | Delete from cursor to the end of the line.   |
-| `Cancel`          | Clear the current input query.               |
-| `SetQuery(str)`   | Set the input query to the specified string. |
-| `QueryPos(pos)`   | Set the cursor position in the query.        |
+| Action            | Description                                                  |
+| ----------------- | ------------------------------------------------------------ |
+| `ForwardChar`     | Move cursor one character forward.                           |
+| `BackwardChar`    | Move cursor one character backward.                          |
+| `ForwardWord`     | Move cursor one word forward.                                |
+| `BackwardWord`    | Move cursor one word backward.                               |
+| `DeleteChar`      | Delete the character under the cursor.                       |
+| `DeleteWord`      | Delete the word before the cursor.                           |
+| `DeleteLineStart` | Delete from cursor to the start of the line.                 |
+| `DeleteLineEnd`   | Delete from cursor to the end of the line.                   |
+| `Cancel`          | Clear the current input query.                               |
+| `SetQuery(s)`     | Replace the input query with `s`.                            |
+| `QueryPos(n)`     | Move the input cursor to position `n`.                       |
+| `Filtering(bool)` | Toggle or set whether input filters results (default: true). |
+| `CycleSort`       | Cycle through sorting stability levels.                      |
+
+### Binds (Dynamic)
+
+| Action                  | Description                                  |
+| ----------------------- | -------------------------------------------- |
+| `Bind(trigger=actions)` | Define or overwrite a binding at runtime.    |
+| `Unbind(trigger)`       | Remove a binding. Use `@` prefix for events. |
+| `PushBind(t=a)`         | Append an action to an existing binding.     |
+| `PopBind(t)`            | Remove the last action from a binding.       |
+
+### UI Customization
+
+| Action         | Description                                           |
+| -------------- | ----------------------------------------------------- |
+| `SetHeader(s)` | Update the header content.                            |
+| `SetFooter(s)` | Update the footer content.                            |
+| `SetPrompt(s)` | Update the input prompt (supports styling templates). |
+| `SetStatus(s)` | Update the status line template.                      |
+
+### Programmable
+
+| Action             | Description                                                  |
+| ------------------ | ------------------------------------------------------------ |
+| `Execute(cmd)`     | Run a shell command (replaces TUI).                          |
+| `ExecuteSilent(c)` | Run a shell command in the background.                       |
+| `Become(cmd)`      | Exit Matchmaker and execute the command.                     |
+| `Reload(cmd)`      | Rerun the item generation command or a new one.              |
+| `ReloadNext(n)`    | Cycle through `additional_commands` defined at startup.      |
+| `Transform(cmd)`   | Run command and parse its output as a stream of Actions.     |
+| `Print(s)`         | Print a string to stdout on exit.                            |
+| `::name`           | Execute the actions associated with semantic trigger `name`. |
 
 ### UI & Display
 
@@ -128,12 +212,15 @@ Actions are the operations performed when a trigger is activated.
 
 ### Programmable
 
-| Action         | Description                                    |
-| -------------- | ---------------------------------------------- |
-| `Execute(cmd)` | Run a shell command and continue.              |
-| `Become(cmd)`  | Replace Matchmaker with the specified command. |
-| `Reload(cmd)`  | Reload items by running the specified command. |
-| `Print(str)`   | Print the specified string to stdout on exit.  |
+| Action           | Description                                    |
+| ---------------- | ---------------------------------------------- |
+| `Execute(cmd)`   | Run a shell command and continue.              |
+| `Become(cmd)`    | Replace Matchmaker with the specified command. |
+| `Reload(cmd)`    | Reload items by running the specified command. |
+| `Print(str)`     | Print the specified string to stdout on exit.  |
+| `PrintKey`       | Print the key string to stdout on exit.        |
+| `Store(str)`     | Store a string in the state (`MM_STORE`).      |
+| `Transform(cmd)` | Run command and parse output as actions.       |
 
 ### Other & Experimental
 
@@ -167,4 +254,55 @@ mm b.ctrl-s='Select Down'
 
 # Some action parameters are optional
 mm b.ctrl-q 'SwitchPreview'
+```
+
+#### Advanced Example: Switching between Ripgrep and MM
+
+You can mimic `fzf`'s [ripgrep example](https://github.com/junegunn/fzf/blob/master/ADVANCED.md) as follows:
+
+```toml
+[input]
+prompt_fg = "Red"
+
+[start]
+command = '''rg --column --line-number --no-heading --color=always --smart-case "$FZF_QUERY"'''
+ansi = true
+
+[binds]
+
+"Start" = "::enter_rg"
+"::enter_rg" = [ # Reload on query change, disable reparsing, update bind
+"Filtering(false)",
+'''Bind(QueryChange = Reload)''',
+
+    # Prompt indicator (
+    '''Transform(
+        [[ -n "$MM_QUERY" ]] &&
+        prompt="($MM_QUERY)" ||
+        prompt="rg>"
+
+        echo "SetPrompt($prompt> )"
+        echo "Store($MM_QUERY)"
+        echo "SetQuery($MM_STORE)"
+    )''',
+    "Bind(::reload = ::enter_mm)",
+
+]
+"::enter_mm" = [
+"Filtering(true)",
+"Unbind(QueryChange)",
+"Bind(::reload = ::enter_rg)",
+'''Transform(
+[[-n "$MM_QUERY"]] &&
+prompt="($MM_QUERY)" ||
+prompt="mm>"
+
+        echo "SetPrompt(\{blue,italic:$prompt })"
+        echo "Store($MM_QUERY)"
+        echo "SetQuery($MM_STORE)"
+    )''',
+
+]
+
+"ctrl-r" = "::reload"
 ```

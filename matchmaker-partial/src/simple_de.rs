@@ -87,6 +87,7 @@ impl<'de> Deserializer<'de> for &mut SimpleDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
+        dbg!(&self);
         let remaining = self.input.len() - self.start;
 
         let no_sequences = match self.consuming {
@@ -125,9 +126,10 @@ impl<'de> Deserializer<'de> for &mut SimpleDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let Ok(s) = self.expect_single() else {
-            return visitor.visit_bool(true); // note that, like Option, this runs the risk of infinite loop
-        };
+        let s = self.expect_single()?;
+        //  else {
+        //     return visitor.visit_bool(true); // note that, like Option, this runs the risk of infinite loop
+        // };
         let val = match s {
             "true" | "" => visitor.visit_bool(true)?,
             "false" => visitor.visit_bool(false)?,

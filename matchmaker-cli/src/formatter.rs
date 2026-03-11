@@ -40,30 +40,6 @@ pub fn format_cli(
     format_cli_inner(state, template, None)
 }
 
-fn any_non_multi(template: &str) -> bool {
-    let mut chars = template.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c == '{' {
-            let mut key = String::new();
-            while let Some(&nc) = chars.peek() {
-                if nc == '}' {
-                    chars.next();
-                    let mut k = key.as_str();
-                    if k.starts_with('=') {
-                        k = &k[1..];
-                    }
-                    if !k.starts_with('+') && !k.starts_with('-') && !k.contains("..") {
-                        return true;
-                    }
-                    break;
-                }
-                key.push(chars.next().unwrap());
-            }
-        }
-    }
-    false
-}
-
 fn format_cli_inner(
     state: &ConfigMMState<'_, '_>,
     template: &str,
@@ -73,6 +49,19 @@ fn format_cli_inner(
     let mut chars = template.chars().peekable();
 
     while let Some(c) = chars.next() {
+        if c == '\\' {
+            // only escape '{'
+            if let Some(&next) = chars.peek() {
+                if next == '{' {
+                    chars.next();
+                    result.push('{');
+                    continue;
+                }
+            }
+            result.push(c);
+            continue;
+        }
+
         if c == '{' {
             let mut key = String::new();
             let mut found_end = false;
@@ -87,24 +76,56 @@ fn format_cli_inner(
 
             if found_end {
                 result.push_str(&process_key(&key, state, item_override));
-                continue;
             } else {
+                // unmatched '{'
                 result.push('{');
                 result.push_str(&key);
-                continue;
             }
+            continue;
         }
+
         result.push(c);
     }
+
     result
 }
 
+fn any_non_multi(template: &str) -> bool {
+    let mut chars = template.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            if let Some(&next) = chars.peek() {
+                if next == '{' {
+                    chars.next();
+                }
+            }
+            continue;
+        }
+
+        if c == '{' {
+            let mut key = String::new();
+            while let Some(&nc) = chars.peek() {
+                if nc == '}' {
+                    chars.next();
+                    if !key.starts_with('+') && !key.starts_with('-') {
+                        return true;
+                    }
+                    break;
+                }
+                key.push(chars.next().unwrap());
+            }
+        }
+    }
+
+    false
+}
 fn process_key(
-    key: &str,
+    input: &str,
     state: &ConfigMMState<'_, '_>,
     item_override: Option<&ConfigMMInnerItem>,
 ) -> String {
-    let mut key = key;
+    let mut key = input;
     let mut quote = true;
     let mut multi = false;
 

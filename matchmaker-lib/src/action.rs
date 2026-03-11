@@ -112,6 +112,10 @@ pub enum Action<A: ActionExt = NullActionExt> {
     Reload(String),
     /// Print via handler
     Print(String),
+    /// Print key via handler
+    PrintKey,
+    /// Store a value in the state
+    Store(String),
 
     // Edit (Input)
     /// Move cursor forward char
@@ -146,6 +150,8 @@ pub enum Action<A: ActionExt = NullActionExt> {
     Custom(A),
     /// Activate the nth overlay
     Overlay(usize),
+    /// Alias for a semantic trigger
+    Semantic(String),
 }
 
 // --------------- MACROS ---------------
@@ -239,7 +245,7 @@ pub use arrayvec::ArrayVec;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Actions<A: ActionExt = NullActionExt>(pub ArrayVec<Action<A>, MAX_ACTIONS>);
 
-impl Default for Actions {
+impl<A: ActionExt> Default for Actions<A> {
     fn default() -> Self {
         Self(ArrayVec::new())
     }
@@ -345,11 +351,11 @@ enum_from_str_display!(
 
     PreviewHalfPageUp, PreviewHalfPageDown,
 
-    ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, Cancel, Redraw, NextColumn, PrevColumn;
+    ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, Cancel, Redraw, NextColumn, PrevColumn, PrintKey;
 
     tuples:
     Execute, ExecuteSilent, Become, Preview,
-    SetQuery, Pos, QueryPos, SwitchColumn;
+    SetQuery, Pos, QueryPos, SwitchColumn, Store;
 
     defaults:
     (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new()), (Reload, String::new()), (PreviewScroll, 1), (PreviewHScroll, 1), (HScroll, 0), (VScroll, 0);
@@ -394,6 +400,9 @@ macro_rules! enum_from_str_display {
                     Self::Char(c) => {
                         write!(f, "{c}")
                     }
+                    Self::Semantic(s) => {
+                        write!(f, "{}", s)
+                    }
                 }
             }
         }
@@ -402,6 +411,15 @@ macro_rules! enum_from_str_display {
             type Err = String;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
+                let s = s.trim();
+                if let Ok(x) = s.parse::<A>() {
+                    return Ok(Self::Custom(x))
+                }
+
+                if let Some(rest) = s.strip_prefix("::") {
+                    return Ok(Self::Semantic(rest.to_string()));
+                }
+
                 let (name, data) = if let Some(pos) = s.find('(') {
                     if s.ends_with(')') {
                         (&s[..pos], Some(&s[pos + 1..s.len() - 1]))
@@ -412,9 +430,6 @@ macro_rules! enum_from_str_display {
                     (s, None)
                 };
 
-                if let Ok(x) = name.parse::<A>() {
-                    return Ok(Self::Custom(x))
-                }
                 match name {
                     $( n if n.eq_ignore_ascii_case(stringify!($unit)) => {
                         if data.is_some() {
