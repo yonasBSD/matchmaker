@@ -1,14 +1,15 @@
-use std::str::FromStr;
+use std::{io::Read, process::Command, str::FromStr};
 
 use cba::{
-    bait::ResultExt, bring::split::split_whitespace_preserving_nesting, unwrap,
+    StringError, bait::ResultExt, bring::split::split_on_unescaped_delimiter, broc::CommandExt,
+    unwrap,
 };
 use log::error;
 use matchmaker::{
-    Action, ConfigMMInnerItem, ConfigMMItem,
+    Action, Actions, ConfigMMInnerItem, ConfigMMItem,
+    binds::Trigger,
     event::BindSender,
-    message::{BindDirective, Interrupt},
-    nucleo::Span,
+    message::{BindDirective, Interrupt, RenderCommand},
     ui::StatusUI,
 };
 
@@ -33,7 +34,7 @@ pub enum MMAction {
     Filtering(Option<bool>),
     /// Cycle result sorting between None, Partial, and Full
     CycleSort,
-    NextReload(Option<usize>),
+    ReloadNext(Option<usize>),
 
     // set
     /// Set header
@@ -55,10 +56,13 @@ pub enum MMAction {
     HistoryDown,
     /// [`matchmaker::Action::Execute`] but silent (TODO)
     ExecuteAsync(String),
+    /// Execute command and parse output as actions
+    Transform(String),
 }
 
 pub struct ActionContext {
     pub bind_tx: BindSender<MMAction>,
+    pub render_tx: matchmaker::event::RenderSender<MMAction>,
     pub additional_commands: (Vec<String>, usize),
     pub output_template: Option<String>,
     pub print_handle: AppendOnly<String>,
@@ -71,6 +75,7 @@ pub fn action_handler(
     state: &mut MMState<'_, '_>,
     ActionContext {
         bind_tx,
+        render_tx,
         additional_commands,
         output_template,
         print_handle,
@@ -123,7 +128,7 @@ pub fn action_handler(
             // todo
         }
 
-        MMAction::NextReload(x) => {
+        MMAction::ReloadNext(x) => {
             let payload = match x {
                 None => {
                     additional_commands.1 =
@@ -134,7 +139,7 @@ pub fn action_handler(
                     if x < additional_commands.0.len() {
                         &additional_commands.0[x]
                     } else {
-                        error!("Index {x} is out of bounds for NextReload");
+                        error!("Index {x} is out of bounds for ReloadNext");
                         return;
                     }
                 }
@@ -144,30 +149,7 @@ pub fn action_handler(
 
         // binds
         MMAction::Bind(s) => {
-            let s = s.trim();
-            let (trigger, values) = if let Some(s) = s.strip_prefix("==") {
-                ("=", s)
-            } else {
-                unwrap!(s.split_once('='))
-            };
-
-            let trigger = unwrap!(trigger.parse()._elog());
-            let parts = unwrap!(
-                split_whitespace_preserving_nesting(&values, Some(['(', ')']), Some(['[', ']']));
-                |n: i32| if n > 0 {
-                    log::error!("Encountered {} unclosed parentheses", n)
-                } else {
-                    log::error!("Extra closing parenthesis at index {}", -n)
-                }
-            );
-            let values = unwrap!(
-                parts
-                    .iter()
-                    .map(|p| Action::<MMAction>::from_str(&s).map_err(|e| e.to_string()))
-                    .collect::<Result<_, _>>()
-                    ._elog()
-            );
-
+            let (trigger, values) = unwrap!(parse_bind_parts(&s)._elog());
             let _ = bind_tx.send(BindDirective::Bind(trigger, values));
         }
         MMAction::Unbind(s) => {
@@ -175,7 +157,8 @@ pub fn action_handler(
             let _ = bind_tx.send(BindDirective::Unbind(trigger));
         }
         MMAction::PushBind(s) => {
-            // todo
+            let (trigger, action) = unwrap!(parse_push_bind_parts(&s)._elog());
+            let _ = bind_tx.send(BindDirective::PushBind(trigger, action));
         }
         MMAction::PopBind(s) => {
             let trigger = unwrap!(s.parse()._elog());
@@ -198,23 +181,99 @@ pub fn action_handler(
             }
         }
         MMAction::SetPrompt(s) => {
-            if let Some(s) = s {
-                state.picker_ui.input.prompt = Span::from(s);
-            } else {
-                state.picker_ui.input.reset_prompt();
-            }
+            let template = s.as_deref().map(StatusUI::parse_template_to_status_line);
+            state.picker_ui.input.set_prompt(template);
         }
         MMAction::SetStatus(s) => {
-            state
-                .picker_ui
-                .results
-                .set_status_line(s.as_deref().map(StatusUI::parse_template_to_status_line));
-        }
+            let template = s.as_deref().map(StatusUI::parse_template_to_status_line);
 
+            state.picker_ui.results.set_status_line(template);
+        }
         MMAction::ExecuteAsync(s) => {
             state.set_interrupt(Interrupt::ExecuteSilent, s);
         }
+        MMAction::Transform(payload) => {
+            let cmd = format_cli(state, &payload, None);
+            if cmd.is_empty() {
+                error!("Failed to format command (make sure : ");
+                return;
+            }
+            let vars = state.make_env_vars();
+            let render_tx = render_tx.clone();
+            if let Some(mut stdout) = Command::from_script(&cmd).envs(vars).spawn_piped()._elog() {
+                let mut contents = String::new();
+                if stdout.read_to_string(&mut contents)._elog().is_some() {
+                    log::debug!("Transform output:\n{}", contents);
+
+                    for line in contents.lines() {
+                        match Action::<MMAction>::from_str(line) {
+                            Ok(action) => {
+                                let _ = render_tx.send(RenderCommand::Action(action));
+                            }
+                            Err(_) => {
+                                error!("Failed to parse action from transform output: {}", line);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
+}
+
+impl MMAction {
+    pub fn validate(&self) -> Result<(), StringError> {
+        match self {
+            MMAction::Bind(s) => {
+                let (_trigger, actions) = crate::action::parse_bind_parts(s)?;
+                for a in &actions {
+                    if let Action::Custom(mm) = a {
+                        mm.validate()?;
+                    }
+                }
+            }
+            MMAction::PushBind(s) => {
+                let (_trigger, a) = crate::action::parse_push_bind_parts(s)?;
+                if let Action::Custom(mm) = &a {
+                    mm.validate()?;
+                }
+            }
+            MMAction::Unbind(s) | MMAction::PopBind(s) => {
+                s.parse::<Trigger>()?;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}
+
+pub fn parse_bind_parts(s: &str) -> Result<(Trigger, Actions<MMAction>), StringError> {
+    let (trigger, values) = s
+        .split_once('=')
+        .ok_or_else(|| format!("Expected '=' in Bind({s})"))?;
+
+    let trigger = trigger.trim().parse()?;
+
+    let parts = split_on_unescaped_delimiter(values, "|||");
+
+    let actions = parts
+        .iter()
+        .map(|p| Action::<MMAction>::from_str(p.trim()))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok((trigger, Actions::from_iter(actions)))
+}
+
+pub fn parse_push_bind_parts(s: &str) -> Result<(Trigger, Action<MMAction>), StringError> {
+    let s = s.trim();
+    let (trigger, values) = s
+        .split_once('=')
+        .ok_or_else(|| format!("Expected '=' in PushBind({s})"))?;
+
+    let trigger = trigger.trim().parse()?;
+    let action = Action::<MMAction>::from_str(values.trim())?;
+
+    Ok((trigger, action))
 }
 
 enum_from_str_display! {
@@ -225,13 +284,13 @@ enum_from_str_display! {
 
 
     tuples:
-    Bind, Unbind, PushBind, PopBind, ExecuteAsync;
+    Bind, Unbind, PushBind, PopBind, ExecuteAsync, Transform;
 
     defaults:
     ;
 
     options:
-    SetPrompt, SetHeader, SetFooter, SetStatus, Filtering, NextReload;
+    SetPrompt, SetHeader, SetFooter, SetStatus, Filtering, ReloadNext;
 
     lossy:
     ;
@@ -357,3 +416,47 @@ macro_rules! enum_from_str_display {
     };
 }
 use enum_from_str_display;
+
+use crate::formatter::format_cli;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use matchmaker::Action;
+
+    #[test]
+    fn test_parse_actions() {
+        assert!(Action::<MMAction>::from_str("Unbind(QueryChange)").is_ok());
+        assert!(Action::<MMAction>::from_str("Filtering(false)").is_ok());
+        assert!(Action::<MMAction>::from_str("SetPrompt(rg> )").is_ok());
+        assert!(Action::<MMAction>::from_str("Reload").is_ok());
+
+        let bind_inner = match Action::<MMAction>::from_str(
+        "Bind(QueryChange = Reload(rg --column --line-number --no-heading --color=always --smart-case \"$FZF_QUERY\"))",
+    )
+    .unwrap()
+    {
+        Action::Custom(MMAction::Bind(s)) => s,
+        _ => panic!(),
+    };
+
+        let (_trigger, actions) = parse_bind_parts(&bind_inner).unwrap();
+        assert_eq!(actions.len(), 1);
+        match &actions[0] {
+            Action::Reload(cmd) => assert_eq!(
+                cmd,
+                "rg --column --line-number --no-heading --color=always --smart-case \"$FZF_QUERY\""
+            ),
+            _ => panic!(),
+        }
+
+        let push_inner =
+            match Action::<MMAction>::from_str("PushBind(ctrl-r = ::enter_mm)").unwrap() {
+                Action::Custom(MMAction::PushBind(s)) => s,
+                _ => panic!(),
+            };
+
+        let (_trigger, action) = parse_push_bind_parts(&push_inner).unwrap();
+        assert_eq!(action, Action::Semantic("enter_mm".into()));
+    }
+}

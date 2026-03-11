@@ -1,6 +1,5 @@
 use ratatui::{
     layout::{Position, Rect},
-    style::Stylize,
     text::{Line, Span},
     widgets::Paragraph,
 };
@@ -15,9 +14,9 @@ pub struct InputUI {
     pub input: String, // remember to call recompute_graphemes() after modifying directly
     /// (byte_index, width)
     graphemes: Vec<(usize, u16)>,
-    pub prompt: Span<'static>,
-    before: usize,  // index into graphemes of the first visible grapheme
-    pub width: u16, // only relevant to cursor scrolling
+    prompt: Line<'static>,
+    before: usize, // index into graphemes of the first visible grapheme
+    width: u16,    // only relevant to cursor scrolling
 
     pub config: InputConfig,
 }
@@ -28,7 +27,7 @@ impl InputUI {
             cursor: 0,
             input: "".into(),
             graphemes: Vec::new(),
-            prompt: Span::from(config.prompt.clone()),
+            prompt: Line::styled(config.prompt.clone(), config.prompt_style()),
             config,
             before: 0,
             width: 0,
@@ -73,9 +72,12 @@ impl InputUI {
         self.cursor as u16
     }
 
+    pub fn left(&self) -> u16 {
+        self.config.border.left() + self.prompt.width() as u16
+    }
+
     /// Given a rect the widget is rendered with, produce the absolute position the cursor is rendered at.
     pub fn cursor_offset(&self, rect: &Rect) -> Position {
-        let left = self.config.border.left();
         let top = self.config.border.top();
 
         let offset_x: u16 = self.graphemes[self.before..self.cursor]
@@ -83,10 +85,7 @@ impl InputUI {
             .map(|(_, w)| *w)
             .sum();
 
-        Position::new(
-            rect.x + self.prompt.width() as u16 + left + offset_x,
-            rect.y + top,
-        )
+        Position::new(rect.x + self.left() + offset_x, rect.y + top)
     }
 
     // ------------ SETTERS ---------------
@@ -181,11 +180,6 @@ impl InputUI {
         }
         self.recompute_graphemes();
         self.cursor = self.graphemes.len();
-    }
-
-    /// Restore prompt from config
-    pub fn reset_prompt(&mut self) {
-        self.prompt = Span::from(self.config.prompt.clone());
     }
 
     /// Set cursor to a visual offset relative to start position
@@ -320,13 +314,31 @@ impl InputUI {
         let end_byte = self.byte_index(end_idx);
         let visible_input = &self.input[start_byte..end_byte];
 
-        let line = Line::from(vec![
-            self.prompt.clone(),
-            Span::raw(visible_input)
-                .style(self.config.fg)
-                .add_modifier(self.config.modifier),
-        ]);
+        let mut line = self.prompt.clone();
+        line.push_span(Span::styled(visible_input, self.config.text_style()));
 
         Paragraph::new(line).block(self.config.border.as_block())
+    }
+
+    /// Set the input ui prefix. The prompt style from the config is used as the base style.
+    pub fn set_prompt(&mut self, template: Option<Line<'static>>) {
+        let line = template
+            .unwrap_or_else(|| self.config.prompt.clone().into())
+            .style(self.config.prompt_style());
+        self.set_prompt_line(line);
+    }
+
+    /// Set the input ui prefix directly.
+    pub fn set_prompt_line(&mut self, prompt: Line<'static>) {
+        let old_width = self.prompt.to_string().width();
+        let new_width = prompt.to_string().width();
+
+        if new_width > old_width {
+            self.width = self.width.saturating_sub((new_width - old_width) as u16);
+        } else if old_width > new_width {
+            self.width += (old_width - new_width) as u16;
+        }
+
+        self.prompt = prompt;
     }
 }

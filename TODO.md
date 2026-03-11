@@ -49,3 +49,5 @@
   - better determination of where it applies
   - autohscroll interferes with manual scroll: better for results to return, per text, the first match index on each line (!)
 - no option for a set of non-exclusive columns: if the default query matches the default column or any in this set, include this result (wip)
+- we can actually make deserializing strings more intuitive with a trial deserializer that always fails, but tells you if the value expects a string, that way don't need to wrap px in "[]". Not sure if it applies anywhere else.
+- semantic aliases are not resolved inside of mm-cli bind

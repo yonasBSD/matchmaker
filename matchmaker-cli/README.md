@@ -2,7 +2,7 @@
 
 Matchmaker is fast, configurable and intuitive fuzzy searcher.
 
-It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and design, but reimagines the user experience. Built from the ground up in Rust using modern libraries, it provides a maximally cohesive, performant and versatile experience, in a minimal amount of code. It's simple to get started, give it a try! [^10]
+It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and design, but reimagines the user experience. Built from the ground up in Rust using modern libraries, it provides a maximally cohesive, performant and versatile experience whith only minimal complexity, clutter and code.[^10]
 
 ![screen1](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/screen1.png)
 
@@ -25,11 +25,11 @@ On the way:
 
 - Matching with [frizbee](https://github.com/saghen/frizbee), a faster, typo-resistant matching algorithm.
 
-[^10]: Sample configurations are on the roadmap, and contributions are very welcome!
+[^10]: Sample configurations beyond the default are on the roadmap, and contributions are very welcome!
 
 [^11]: The benefits of a structured, hierarchical, global baseline configuration are many, including but not limited to the fact that toml strings make it much easier to bind keys to complex shell scripts.
 
-[^12]: Custom exit codes, select all (`CycleAll`), PageUp/Down, Show Help, Cycle columns (`NextColumn`), Multiple input commands (`NextReload`), etc. ...
+[^12]: Custom exit codes, select all (`CycleAll`), PageUp/Down, Show Help, Cycle columns (`NextColumn`), Multiple input commands (`ReloadNext`), etc. ...
 
 [^13]: This is useful for when you want to write a shell script that dispatches different actions on the output of matchmaker based on the key that was pressed.
 
@@ -91,7 +91,7 @@ The structure of the config file is defined [here](./matchmaker-cli/src/config.r
 Options can be overridden on the command line, where abbreviations are supported:
 
 ```sh
-mm --config ~/.config/matchmaker/alternate.toml p.l "cmd=[echo {}] p=50 max=20" cmd "ls" o "'{}'"
+mm --config ~/.config/matchmaker/alternate.toml p.l "cmd=echo {}|||p=50|||max=20" cmd "ls" o "'{}'"
 
 # 1. Start mm with an alternate config, as well as with the following overrides:
 # 2. List the contents of the current directory by executing `ls`

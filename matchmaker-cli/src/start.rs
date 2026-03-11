@@ -23,8 +23,8 @@ use cba::{
 use cba::{bo::load_type, broc::CommandExt};
 use log::debug;
 use matchmaker::{
-    ConfigInjector, MatchError, Matchmaker, OddEnds, PickOptions, SSS,
-    binds::display_binds,
+    Action, ConfigInjector, MatchError, Matchmaker, OddEnds, PickOptions, SSS,
+    binds::{BindMapExt, display_binds},
     config::{MatcherConfig, StartConfig},
     event::{EventLoop, RenderSender},
     make_previewer,
@@ -94,8 +94,6 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         config.tui.layout = None;
     }
 
-    resolve_aliases(&config.aliases, &mut config.binds);
-
     if cli.dump_config {
         let contents = toml::to_string_pretty(&config).expect("failed to serialize to TOML");
 
@@ -108,6 +106,17 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         }
 
         exit(0);
+    }
+
+    // check binds
+    config.binds.check_cycles().map_err(anyhow::Error::msg)?;
+
+    for actions in config.binds.values() {
+        for a in actions {
+            if let Action::Custom(mm) = &a {
+                mm.validate()?;
+            }
+        }
     }
 
     log::debug!("{config:?}");
@@ -140,41 +149,6 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
     })
 }
 
-use cba::wbog;
-use matchmaker::{Actions, binds::Trigger};
-use std::collections::HashMap;
-pub fn resolve_aliases(
-    aliases: &HashMap<String, Trigger>,
-    binds: &mut HashMap<Trigger, Actions<MMAction>>,
-) {
-    let mut to_insert = Vec::new();
-
-    // Retain only non-alias triggers
-    binds.retain(|trigger, actions| {
-        if let Trigger::Semantic(name) = trigger {
-            match aliases.get(name) {
-                Some(Trigger::Semantic(_)) => {
-                    wbog!("skipped recursive alias `{name}`.");
-                }
-                Some(resolved) => {
-                    to_insert.push((resolved.clone(), actions.clone()));
-                }
-                None => {
-                    wbog!("skipped bind for missing alias `{name}`.");
-                }
-            }
-            false
-        } else {
-            true
-        }
-    });
-
-    // Insert the resolved triggers
-    for (trigger, actions) in to_insert {
-        binds.insert(trigger, actions);
-    }
-}
-
 pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let Config {
         render,
@@ -182,7 +156,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         previewer,
         matcher: MatcherConfig { matcher, worker },
         binds,
-        aliases: _,
         start:
             StartConfig {
                 input_separator,
@@ -276,26 +249,30 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     debug!("{mm:?}");
 
+    let bind_tx = event_loop.bind_controller();
+    let mut options = PickOptions::new()
+        .event_loop(event_loop)
+        .matcher(matcher.0)
+        .previewer(previewer)
+        .hidden_columns(hidden_columns);
+
+    let render_tx = options.render_tx();
+
     let mut action_context = ActionContext {
-        bind_tx: event_loop.bind_controller(),
+        bind_tx,
+        render_tx: render_tx.clone(),
         additional_commands: (additional_commands, 0),
         output_template,
         print_handle: print_handle.clone(),
         output_separator: output_separator.clone(),
     };
 
-    let mut options = PickOptions::new()
-        .event_loop(event_loop)
-        .matcher(matcher.0)
-        .previewer(previewer)
-        .hidden_columns(hidden_columns)
+    options = options
         .ext_handler(move |x, y| action_handler(x, y, &mut action_context))
         .ext_aliaser(|a, _state| match a {
             matchmaker::Action::Accept => matchmaker::acs![MMAction::Accept],
             _ => matchmaker::acs![a],
         });
-
-    let render_tx = options.render_tx();
 
     // ----------- read -----------------------
     let push_fn = inject_line(header_lines, render_tx.clone(), injector);

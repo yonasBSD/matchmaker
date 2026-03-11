@@ -95,9 +95,9 @@ impl ConfigMatchmaker {
                         .map(|s| Arc::from(s.name.as_str()))
                         .collect()
                 };
-                Worker::new_indexable(names, &worker_config.default_column)
+                Worker::new_indexable(names, worker_config.default_column.as_deref())
             }
-            Split::None => Worker::new_indexable([""], ""),
+            Split::None => Worker::new_indexable([""], None),
         };
 
         #[cfg(feature = "experimental")]

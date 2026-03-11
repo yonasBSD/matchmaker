@@ -159,13 +159,13 @@ where
     /// pub fn make_mm(
     ///     items: impl Iterator<Item = RunAction>,
     /// ) -> Matchmaker<Indexed<RunAction>, RunAction> {
-    ///     let worker = Worker::new_indexable(["name", "alias", "desc"], "name");
+    ///     let worker = Worker::new_indexable(["name", "alias", "desc"], Some("name"));
     ///     worker.append(items);
     ///     let selector = Selector::new(Indexed::identifier);
     ///     Matchmaker::new(worker, selector)
     /// }
     /// ```
-    pub fn new_indexable<I, S>(column_names: I, default_column: &str) -> Self
+    pub fn new_indexable<I, S>(column_names: I, default_column: Option<&str>) -> Self
     where
         I: IntoIterator<Item = S>,
         S: Into<Arc<str>>,
@@ -178,10 +178,14 @@ where
             .map(|(i, name)| Column::new(name.clone(), move |item: &T| item.get_text(i)));
 
         // Find the index of the default column
-        let default_index = columns_vec
-            .iter()
-            .position(|name| name.as_ref() == default_column)
-            .unwrap_or(0); // fallback to 0 if not found
+        let default_index = if let Some(default_column) = default_column {
+            columns_vec
+                .iter()
+                .position(|name| name.as_ref() == default_column)
+                .unwrap_or(0) // fallback to 0 if not found
+        } else {
+            0
+        };
 
         Self::new(columns, default_index)
     }

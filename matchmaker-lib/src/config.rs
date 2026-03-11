@@ -12,9 +12,7 @@ use crate::{
     utils::serde::{escaped_opt_char, escaped_opt_string, serde_duration_ms},
 };
 
-use cba::serde::transform::{
-    camelcase_normalized, camelcase_normalized_option,
-};
+use cba::serde::transform::{camelcase_normalized, camelcase_normalized_option};
 use ratatui::{
     style::{Color, Modifier, Style},
     text::Span,
@@ -51,7 +49,7 @@ pub struct WorkerConfig {
     pub sort_threshold: u32,
     /// The name of the default column
     #[partial(alias = "i")]
-    pub default_column: String,
+    pub default_column: Option<String>,
 
     /// TODO: Enable raw mode where non-matching items are also displayed in a dimmed color.
     #[partial(alias = "r")]
@@ -83,7 +81,7 @@ pub struct StartConfig {
     /// Default command to execute when stdin is not being read.
     #[partial(alias = "cmd", alias = "x")]
     pub command: String,
-    /// (cli only) Additional command which can be cycled through using Action::NextReload
+    /// (cli only) Additional command which can be cycled through using Action::ReloadNext
     #[partial(alias = "ax")]
     pub additional_commands: Vec<String>,
     pub sync: bool,
@@ -197,7 +195,7 @@ impl Default for UiConfig {
     }
 }
 
-/// The input bar ui.
+/// The query (input) bar ui.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
@@ -213,6 +211,7 @@ pub struct InputConfig {
 
     #[serde(deserialize_with = "camelcase_normalized")]
     pub prompt_fg: Color,
+    pub prompt_bg: Color,
     // #[serde(deserialize_with = "transform_uppercase")]
     pub prompt_modifier: Modifier,
 
@@ -237,6 +236,7 @@ impl Default for InputConfig {
             fg: Default::default(),
             modifier: Default::default(),
             prompt_fg: Default::default(),
+            prompt_bg: Default::default(),
             prompt_modifier: Default::default(),
             prompt: "> ".to_string(),
             cursor: Default::default(),
@@ -244,6 +244,19 @@ impl Default for InputConfig {
 
             scroll_padding: true,
         }
+    }
+}
+
+impl InputConfig {
+    pub fn text_style(&self) -> Style {
+        Style::default().fg(self.fg).add_modifier(self.modifier)
+    }
+
+    pub fn prompt_style(&self) -> Style {
+        Style::default()
+            .fg(self.prompt_fg)
+            .bg(self.prompt_bg)
+            .add_modifier(self.prompt_modifier)
     }
 }
 
@@ -360,12 +373,16 @@ pub struct ResultsConfig {
     pub wrap: bool,
     pub min_wrap_width: u16,
 
+    // autoscroll
+    pub autoscroll_initial_preserved: usize,
+    pub autoscroll: bool,
+    pub autoscroll_context: usize,
+
     // ------------
     // experimental
     // ------------
     pub column_spacing: Count,
     pub current_prefix: String,
-    pub match_start_context: Option<usize>,
 
     // lowpri: maybe space-around/space-between instead?
     #[partial(alias = "ra")]
@@ -415,7 +432,10 @@ impl Default for ResultsConfig {
 
             wrap: Default::default(),
             min_wrap_width: 6,
-            match_start_context: Some(4),
+
+            autoscroll: true,
+            autoscroll_initial_preserved: 0,
+            autoscroll_context: 4,
 
             column_spacing: Default::default(),
             current_prefix: Default::default(),
@@ -432,8 +452,11 @@ impl Default for ResultsConfig {
 pub struct StatusConfig {
     #[serde(deserialize_with = "camelcase_normalized")]
     pub fg: Color,
+    #[serde(deserialize_with = "camelcase_normalized")]
+    pub bg: Color,
     // #[serde(deserialize_with = "transform_uppercase")]
     pub modifier: Modifier,
+
     /// Whether the status is visible.
     pub show: bool,
     /// Indent the status to match the results.
@@ -456,12 +479,22 @@ impl Default for StatusConfig {
     fn default() -> Self {
         Self {
             fg: Color::Green,
+            bg: Default::default(),
             modifier: Modifier::ITALIC,
             show: true,
             match_indent: true,
             template: r#"\m/\t"#.to_string(),
             row_connection_style: RowConnectionStyle::Full,
         }
+    }
+}
+
+impl StatusConfig {
+    pub fn base_style(&self) -> Style {
+        Style::default()
+            .fg(self.fg)
+            .bg(self.bg)
+            .add_modifier(self.modifier)
     }
 }
 

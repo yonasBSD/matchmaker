@@ -1,3 +1,4 @@
 /target
 *.log
 .cargo/config.toml
+*.txt

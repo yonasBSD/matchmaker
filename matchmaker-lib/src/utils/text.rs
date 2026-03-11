@@ -110,9 +110,17 @@ pub fn wrapped_line_height(line: &Line<'_>, width: u16) -> u16 {
     line.width().div_ceil(width as usize) as u16
 }
 
+pub fn wrapping_indicator<'a>() -> Span<'a> {
+    Span::raw("↵").fg(Color::DarkGray).dim()
+}
+
+pub fn hscroll_indicator<'a>() -> Span<'a> {
+    Span::styled("…", Style::default().fg(Color::DarkGray))
+}
+
 pub fn wrap_text<'a>(text: Text<'a>, max_width: u16) -> (Text<'a>, bool) {
     // todo: lowpri: refactor to support configuring
-    let wrapping_span = Span::raw("↵").fg(Color::DarkGray).dim();
+    let wrapping_span = wrapping_indicator();
 
     if max_width == 0 {
         return (text, false);
@@ -289,14 +297,23 @@ pub fn scrub_text_styles(text: &mut Text<'_>) {
 }
 
 /// Expand `placeholder` inside a Line and distribute spaces to reach `target_width`.
-pub fn expand_indents<'a>(input: Line<'a>, placeholder: &str, target_width: usize) -> Line<'a> {
+pub fn expand_indents<'a>(
+    input: Line<'a>,
+    placeholder: &str,
+    ignored_placeholder: &str,
+    target_width: usize,
+) -> Line<'a> {
     let mut count = 0;
     let mut base_width = 0;
 
     // Compute display width excluding placeholders
     for span in &input.spans {
         count += span.content.matches(placeholder).count();
-        for segment in span.content.split(placeholder) {
+        count += span.content.matches(ignored_placeholder).count();
+
+        // Split on both placeholders
+        let tmp = span.content.replace(ignored_placeholder, "");
+        for segment in tmp.split(placeholder) {
             base_width += segment.width();
         }
     }
@@ -364,62 +381,12 @@ pub fn expand_indents<'a>(input: Line<'a>, placeholder: &str, target_width: usiz
     Line::from(new_spans)
 }
 
-/// Scrolls a single Line by skipping graphemes until the visual width
-/// consumed matches the `scroll_offset`.
-pub fn hscroll_line(line: Line<'_>, scroll_offset: u16) -> Line<'_> {
-    let mut current_width = 0;
-    let mut new_spans = Vec::new();
-
-    for span in line.spans {
-        let span_width = span.content.width();
-
-        // Case 1: The entire span is hidden behind the scroll offset
-        if current_width + span_width <= scroll_offset as usize {
-            current_width += span_width;
-            continue;
-        }
-
-        // Case 2: The scroll offset sits somewhere inside this span
-        if current_width < scroll_offset as usize {
-            let to_skip = scroll_offset as usize - current_width;
-            let mut skipped_so_far = 0;
-            let mut start_index = 0;
-
-            // Iterate over graphemes to find the cut-off point
-            for (i, c) in span.content.char_indices() {
-                let char_w = unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
-                if skipped_so_far >= to_skip {
-                    start_index = i;
-                    break;
-                }
-                skipped_so_far += char_w;
-                // If we reach the end of the string but haven't hit to_skip
-                // (e.g. wide char), we'll just start at the next span.
-                start_index = span.content.len();
-            }
-
-            if start_index < span.content.len() {
-                new_spans.push(Span::styled(
-                    span.content[start_index..].to_string(),
-                    span.style,
-                ));
-            }
-            current_width += span_width;
-        } else {
-            // Case 3: Span is fully visible (already past the scroll offset)
-            new_spans.push(span);
-        }
-    }
-
-    Line::from(new_spans)
-}
-
-pub fn apply_to_lines(text: &mut Text<'_>, transform: impl Fn(Line<'_>) -> Line<'_>) {
-    for line in text.lines.iter_mut() {
-        let owned_line = std::mem::take(line);
-        *line = transform(owned_line);
-    }
-}
+// pub fn apply_to_lines(text: &mut Text<'_>, transform: impl Fn(Line<'_>) -> Line<'_>) {
+//     for line in text.lines.iter_mut() {
+//         let owned_line = std::mem::take(line);
+//         *line = transform(owned_line);
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

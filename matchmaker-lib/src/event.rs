@@ -1,5 +1,5 @@
 use crate::action::{Action, ActionExt, NullActionExt};
-use crate::binds::BindMap;
+use crate::binds::{BindMap, BindMapExt, Trigger};
 use crate::message::{BindDirective, Event, RenderCommand};
 use anyhow::Result;
 use cba::bait::ResultExt;
@@ -12,7 +12,6 @@ use crossterm::event::{
 use futures::stream::StreamExt;
 use log::{debug, error, info, warn};
 use ratatui::layout::Rect;
-use std::collections::hash_map::Entry;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 use tokio::time::{self};
@@ -85,6 +84,10 @@ impl<A: ActionExt> EventLoop<A> {
         ret
     }
 
+    pub fn check_binds(&self) -> Result<(), String> {
+        self.binds.check_cycles()
+    }
+
     pub fn record_last_key(&mut self, path: PathBuf) -> &mut Self {
         self.key_file = Some(path);
         self
@@ -131,7 +134,7 @@ impl<A: ActionExt> EventLoop<A> {
             _ => {}
         }
         if let Some(actions) = self.binds.get(&e.into()).cloned() {
-            self.send_actions(actions);
+            self.send_actions(actions, None);
         }
     }
 
@@ -143,14 +146,9 @@ impl<A: ActionExt> EventLoop<A> {
                 self.binds.insert(k, v);
             }
 
-            BindDirective::PushBind(k, v) => match self.binds.entry(k) {
-                Entry::Occupied(mut entry) => {
-                    entry.get_mut().0.extend(v);
-                }
-                Entry::Vacant(entry) => {
-                    entry.insert(v);
-                }
-            },
+            BindDirective::PushBind(k, v) => {
+                self.binds.entry(k).or_default().0.push(v);
+            }
 
             BindDirective::Unbind(k) => {
                 self.binds.remove(&k);
@@ -228,7 +226,7 @@ impl<A: ActionExt> EventLoop<A> {
                 _ = tokio::signal::ctrl_c() => {
                     self.record_key("ctrl-c".into());
                     if let Some(actions) = self.binds.get(&key!(ctrl-c).into()).cloned() {
-                        self.send_actions(actions);
+                        self.send_actions(actions, Some("ctrl-c".into()));
                     } else {
                         self.send(RenderCommand::quit());
                         info!("Received ctrl-c");
@@ -263,7 +261,7 @@ impl<A: ActionExt> EventLoop<A> {
                                         let key = KeyCombination::normalized(key);
                                         if let Some(actions) = self.binds.get(&key.into()).cloned() {
                                             self.record_key(key.to_string());
-                                            self.send_actions(actions);
+                                            self.send_actions(actions, Some(key.to_string()));
                                         } else if let Some(c) = key_code_as_letter(key) {
                                             self.send(RenderCommand::Action(Action::Char(c)));
                                         } else {
@@ -298,7 +296,7 @@ impl<A: ActionExt> EventLoop<A> {
                                 }
                                 CrosstermEvent::Mouse(mouse) => {
                                     if let Some(actions) = self.binds.get(&mouse.into()).cloned() {
-                                        self.send_actions(actions);
+                                        self.send_actions(actions, None);
                                     } else if !matches!(mouse.kind, MouseEventKind::Moved) {
                                         // mouse binds can be disabled by overriding with empty action
                                         // preview scroll can be disabled by overriding scroll event with scroll action
@@ -359,9 +357,21 @@ impl<A: ActionExt> EventLoop<A> {
         self.current_task = Some(handle);
     }
 
-    fn send_actions<'a>(&self, actions: impl IntoIterator<Item = Action<A>>) {
+    fn send_actions<'a>(&self, actions: impl IntoIterator<Item = Action<A>>, key: Option<String>) {
         for action in actions {
-            self.send(action.into());
+            match action {
+                Action::PrintKey => {
+                    if let Some(k) = &key {
+                        self.send(Action::Print(k.clone()).into());
+                    }
+                }
+                Action::Semantic(s) => {
+                    if let Some(actions) = self.binds.get(&Trigger::Semantic(s)) {
+                        self.send_actions(actions.clone(), None);
+                    }
+                }
+                _ => self.send(action.into()),
+            }
         }
     }
 

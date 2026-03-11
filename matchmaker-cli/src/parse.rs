@@ -22,7 +22,7 @@ static ALIASES: &[(&str, &str)] = &[
     ("d", "matcher.split"),
     //
     ("px", "preview.layout.command"),
-    ("l", "preview.layout"),
+    ("P", "preview.layout"),
     ("h", "header.content"),
 ];
 
