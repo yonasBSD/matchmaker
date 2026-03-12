@@ -102,13 +102,13 @@ The structure of the config file is defined [here](./matchmaker-cli/src/config.r
 Options can be overridden on the command line, where abbreviations are supported:
 
 ```sh
-mm --config ~/.config/matchmaker/alternate.toml p.l "cmd=echo {}|||p=50|||max=20" cmd "ls" o "'{}'"
+mm p.l "cmd=echo []|||p=50|||max=20" cmd "ls" o "[=]"
 
-# 1. Start mm with an alternate config, as well as with the following overrides:
+# 1. Start mm with the following overrides:
 # 2. List the contents of the current directory by executing `ls`
 # 3. Show the current item name in the preview pane
-# 4. Set a preferred percentage of 50 for the preview pane, and a maximum column width of 20 for the preview pane
-# 5. Output the result wrapped in single quotes
+# 4. Set a preferred percentage of 50 for the preview pane, but a column width of 20
+# 5. Output the result without single quotes
 ```
 
 [^1]: Note that the flatten attribute on the render field means that the subfields of RenderConfig should be specified at the top level of the toml (i.e. your toml should specify `[results]` instead of `[render.results]`).
@@ -146,6 +146,13 @@ Currently, the first includes an example for interactively performing a full tex
 - `ctrl-.` to cycle between columns.
 
 ![ripgrep](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/ripgrep.png)
+
+```shell
+# Try it yourself
+mkdir -p ~/.config/matchmaker/presets
+curl -L https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-cli/assets/rg.toml -o ~/.config/matchmaker/presets/rg.toml
+mm --config ~/.config/matchmaker/presets/rg.toml
+```
 
 ## Library
 

@@ -242,10 +242,6 @@ impl PreviewLayout {
             area.height
         };
 
-        let p = self.percentage.inner();
-
-        let mut side_size = if p != 0 { total * p / 100 } else { 0 };
-
         let min = if self.min < 0 {
             total.saturating_sub((-self.min) as u16)
         } else {
@@ -258,7 +254,12 @@ impl PreviewLayout {
             self.max as u16
         };
 
-        side_size = side_size.clamp(min, max);
+        let side_size = if min <= max {
+            self.percentage.compute_clamped(total, min, max)
+        } else {
+            log::error!("PreviewLayout min > max: {min} > {max}. Ignoring max.");
+            self.percentage.compute_clamped(total, min, 0)
+        };
 
         let side_constraint = Constraint::Length(side_size);
 
