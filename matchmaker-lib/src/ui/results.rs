@@ -831,12 +831,11 @@ impl ResultsUI {
             vec![self.width]
         };
 
-        log::debug!(
-            "widths: {width_limits:?}, {widths:?}, {table_widths:?}, {:?}",
-            self.widths
-        );
+        // log::debug!(
+        //     "widths: {width_limits:?}, {widths:?}, {table_widths:?}, {:?}",
+        //     self.widths
+        // );
 
-        // why does the row highlight apply beyond the table width?
         let mut table = Table::new(rows, table_widths).column_spacing(self.config.column_spacing.0);
 
         table = match self.config.row_connection {
