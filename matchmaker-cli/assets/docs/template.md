@@ -2,6 +2,7 @@
 
 Matchmaker uses a template system for formatting output and executing commands.
 Templates use `[]` placeholders with various modifiers to inject item data.
+It's important note that only valid keys are replaced -- invalid keys are left alone. If you need it, you can also escape `[`.
 
 ## Modifiers
 
@@ -45,11 +46,6 @@ Column ranges can be specified.
 | `[..]`         | All visible columns                                        |
 
 Modifiers (`=`, `+`, `-`) also apply to ranges.
-
-## Rules
-
-- **Escaping**: `\[` can be used to escape the starting bracket if you need a literal `[`.
-- **Whitespace**: Bracket contents beginning with whitespace (e.g., `[ ]`) are not treated as placeholders and are left as literal text.
 
 ## Examples
 

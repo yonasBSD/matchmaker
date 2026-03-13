@@ -48,7 +48,7 @@ Matchmaker uses a powerful fuzzy matcher (based on Nucleo) to filter and rank it
         - Third unnamed group → third column in order
   - `Regexes([regex])`: Uses a sequence of regexes to capture specific parts of the line.
 - **`columns.names`**: A list of column settings (`name`, `filter`, `hidden`).
-  - If names are provided, you can filter by them. **Note: Column names must be alphanumeric.**
+  - If names are provided, you can filter by them.
   - If unspecified, columns are automatically named `1`, `2`, ... (or `0`, `1`, ... if `names_from_zero` is true).
 
 _Note: Beware that any columns after `columns.max` are inaccessible!_
