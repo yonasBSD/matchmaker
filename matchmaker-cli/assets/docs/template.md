@@ -20,6 +20,8 @@ You can specify a column by its name.
 
 Note that the default column names (when `columns.names` is unspecified) are `1` … `columns.max`.
 
+**Note: Column names must be alphanumeric.**
+
 | Placeholder | Description                                       |
 | ----------- | ------------------------------------------------- |
 | `[col]`     | Column `col` of current item (shell-quoted)       |

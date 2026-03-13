@@ -16,14 +16,15 @@
 
 [[preview.layout]]
     command = '''
-if command -v bat >/dev/null 2>&1; then
-    bat --binary no-printing --color=always []
-elif command -v eza >/dev/null 2>&1; then
-    eza --color=always -T -L 2 []
+if [ -d [] ]; then
+    if command -v eza >/dev/null 2>&1; then
+        eza --color=always -T -L 2 []
+    else
+        find [] -maxdepth 2 | sed 's|[^/]*/|  |g'
+    fi
 else
-    if [ -d [] ]; then
-        cd [] &&
-        find . -maxdepth 2 | sed 's|[^/]*/|  |g'
+    if command -v bat >/dev/null 2>&1; then
+        bat --binary no-printing --color=always []
     else
         cat []
     fi

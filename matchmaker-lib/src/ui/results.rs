@@ -403,16 +403,18 @@ impl ResultsUI {
             .iter()
             .map(height_of)
             .sum::<u16>();
-        let cursor_end_should_lt = self.height - self.scroll_padding().min(h_after_cursor);
+        let cursor_end_should_lte = self.height - self.scroll_padding().min(h_after_cursor);
         // let cursor_start_should_gt = self.scroll_padding().min(h_to_cursor);
 
         // log::debug!(
-        //     "Computed heights: {h_at_cursor}, {h_to_cursor}, {h_after_cursor}, {cursor_end_should_lt}",
+        //     "Computed heights: {}, {h_at_cursor}, {h_to_cursor}, {h_after_cursor}, {cursor_end_should_lte}",
+        //     self.cursor
         // );
+
         // begin adjustment
         let mut start_index = 0; // the index in results of the first complete item
 
-        if h_at_cursor >= cursor_end_should_lt {
+        if h_at_cursor >= cursor_end_should_lte {
             start_index = self.cursor;
             self.bottom += self.cursor as u32;
             self.cursor = 0;
@@ -421,9 +423,9 @@ impl ResultsUI {
         } else
         // increase the bottom index so that cursor_should_above is maintained
         if let h_to_cursor_end = h_to_cursor + h_at_cursor
-            && h_to_cursor_end > cursor_end_should_lt
+            && h_to_cursor_end > cursor_end_should_lte
         {
-            let mut trunc_height = h_to_cursor_end - cursor_end_should_lt;
+            let mut trunc_height = h_to_cursor_end - cursor_end_should_lte;
             // note that there is a funny side effect that scrolling up near the bottom can scroll up a bit, but it seems fine to me
 
             for r in results[start_index as usize..self.cursor as usize].iter_mut() {

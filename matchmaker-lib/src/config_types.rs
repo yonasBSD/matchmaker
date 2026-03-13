@@ -191,11 +191,34 @@ pub enum CursorSetting {
     Default,
 }
 
+define_transparent_wrapper!(
+    #[derive(Clone, Serialize, Default)]
+    #[serde(transparent)]
+    ColumnName: String
+);
+
+impl<'de> Deserialize<'de> for ColumnName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        if s.chars().all(|c| c.is_alphanumeric()) {
+            Ok(ColumnName(s))
+        } else {
+            Err(serde::de::Error::custom(format!(
+                "Invalid column name '{}': name must be alphanumeric",
+                s
+            )))
+        }
+    }
+}
+
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ColumnSetting {
     pub filter: bool,
     pub hidden: bool,
-    pub name: String,
+    pub name: ColumnName,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -302,7 +325,7 @@ impl<'de> Deserialize<'de> for ColumnSetting {
             filter: bool,
             #[serde(default)]
             hidden: bool,
-            name: String,
+            name: ColumnName,
         }
 
         fn default_true() -> bool {
@@ -312,7 +335,7 @@ impl<'de> Deserialize<'de> for ColumnSetting {
         #[derive(Deserialize)]
         #[serde(untagged)]
         enum Input {
-            Str(String),
+            Str(ColumnName),
             Obj(ColumnStruct),
         }
 
@@ -426,5 +449,35 @@ impl<'de> Deserialize<'de> for StringValue {
         }
 
         deserializer.deserialize_any(Visitor)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Deserialize)]
+    struct TestName {
+        name: ColumnName,
+    }
+
+    #[test]
+    fn test_column_name_validation() {
+        // Valid
+        let name: TestName = toml::from_str("name = \"col1\"").expect("Valid name");
+        assert_eq!(name.name.as_str(), "col1");
+
+        let name: TestName = toml::from_str("name = \"Column123\"").expect("Valid name");
+        assert_eq!(name.name.as_str(), "Column123");
+
+        // Invalid
+        let res: Result<TestName, _> = toml::from_str("name = \"col-1\"");
+        assert!(res.is_err());
+
+        let res: Result<TestName, _> = toml::from_str("name = \"col 1\"");
+        assert!(res.is_err());
+
+        let res: Result<TestName, _> = toml::from_str("name = \"col_1\"");
+        assert!(res.is_err());
     }
 }

@@ -134,7 +134,7 @@ impl ConfigMatchmaker {
                     } else {
                         name_opt.and_then(|name| {
                             has_named_group = true;
-                            names.iter().position(|n| n.name == name)
+                            names.iter().position(|n| n.name.0 == name)
                         })
                     }
                 })

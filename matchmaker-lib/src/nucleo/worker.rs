@@ -474,8 +474,9 @@ fn render_cell<T: SSS>(
         if autoscroll.enabled && autoscroll.end {
             i = match_idx.unwrap_or(line_graphemes.len());
 
-            let target_width = if match_idx.is_some() {
-                (width_limit as usize).saturating_sub(autoscroll.context)
+            let target_width = if let Some(x) = match_idx {
+                (width_limit as usize)
+                    .saturating_sub(autoscroll.context.min(line_graphemes.len() - x - 1))
             } else {
                 width_limit as usize
             }
@@ -916,33 +917,6 @@ mod tests {
 
     #[test]
     fn test_autoscroll_end() {
-        // Query "match". "abcdefghijmatch"
-        // width_limit = 10. context = 2. end = true.
-        // last_match_idx = 14 (at 'h' in "match").
-        // target_width = 10 - 2 = 8.
-        // From index 14, we go back 8 units.
-        // "jmatch" is 6 units.
-        // "ijmatch" is 7.
-        // "hijmatch" is 8.
-        // start_idx = 14 - 8 + 1 = 7. Wait, indices are 0..14.
-        // "abcdefghijmatch"
-        //  012345678901234
-        // matches are 10,11,12,13,14.
-        // last_match_idx = 14.
-        // target_width = 8.
-        // start_idx starts at 14.
-        // idx 14: 'h', current_width 1.
-        // idx 13: 'c', current_width 2.
-        // idx 12: 't', current_width 3.
-        // idx 11: 'a', current_width 4.
-        // idx 10: 'm', current_width 5.
-        // idx 9: 'j', current_width 6.
-        // idx 8: 'i', current_width 7.
-        // idx 7: 'h', current_width 8.
-        // idx 6: 'g', current_width 9 > 8 (STOP).
-        // Result start_idx = 6. "ghijmatch".
-        // Output should be "…ghijmatch" (since start_idx > 0)
-
         let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "abcdefghijmatch");
         let snapshot = nucleo.snapshot();
         let item = snapshot.get_item(0).unwrap();
@@ -962,7 +936,7 @@ mod tests {
             &mut buffer,
             AutoscrollSettings {
                 end: true,
-                context: 2,
+                context: 4,
                 ..Default::default()
             },
             0,

@@ -1,3 +1,10 @@
+## [0.0.18] - 2026-03-13
+
+### 🚀 Features
+
+- moved autoscroll options to results.autoscroll
+- autoscroll.end (--keep-right) in fzf.
+
 ## [0.0.17] - 2026-03-13
 
 ### 🚀 Features

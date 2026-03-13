@@ -19,7 +19,7 @@ pub fn init_logger([q, v]: [u8; 2], log_path: &Path) {
             builder
                 .filter(None, log::LevelFilter::Info)
                 .filter(Some(LIBRARY_FULL), log::LevelFilter::Debug)
-                .filter(Some("cba"), log::LevelFilter::Debug)
+                .filter(Some("cba"), log::LevelFilter::Trace)
                 .filter(Some(BINARY_SHORT), log::LevelFilter::Debug);
         }
         #[cfg(not(debug_assertions))]
@@ -38,9 +38,7 @@ pub fn init_logger([q, v]: [u8; 2], log_path: &Path) {
         }
     }
 
-    log_path
-        .parent()
-        .map(cba::bs::create_dir);
+    log_path.parent().map(cba::bs::create_dir);
 
     if let Some(log_file) = OpenOptions::new()
         .truncate(true)

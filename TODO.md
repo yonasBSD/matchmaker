@@ -14,6 +14,7 @@
 - status/header click events
 - ExecuteAsync: support chaining actions without blocking ui
 - improve wrap_text and hscroll on non filtering
+- Bottom scroll padding not working with --reverse (maybe we want to increase self.cursor if height before is insufficient).
 
 # Previewer
 
