@@ -1,3 +1,10 @@
+## [0.0.19] - 2026-03-14
+
+### 🚀 Features
+
+- reverted template braces [] -> {} for fzf compatibility
+- improved docs
+
 ## [0.0.18] - 2026-03-13
 
 ### 🚀 Features

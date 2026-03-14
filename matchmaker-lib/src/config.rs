@@ -719,8 +719,8 @@ pub struct BorderSetting {
     /// `sides = "ALL"`
     /// When omitted, this either ALL or the side that sits between results and the corresponding layout if either padding or type are specified, otherwise NONE.
     ///
-    /// A single space enforces no sides:
-    /// `sides = " "`
+    /// An empty string enforces no sides:
+    /// `sides = ""`
     // #[serde(deserialize_with = "uppercase_normalized_option")] // need ratatui bitflags to use transparent
     pub sides: Option<Borders>,
     /// Supply as either 1, 2, or 4 numbers for:
