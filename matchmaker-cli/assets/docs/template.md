@@ -13,7 +13,7 @@ It's important note that only valid keys are replaced -- invalid keys are left a
 | `{+}`    | All selected items (shell-quoted, space-separated) |
 | `{-}`    | All selected items (no quotes, space-separated)    |
 
-_Note: This outputs the original line (after possible trimming and ansi processing), and is not the same as {..} below._
+*Note: This outputs the original line (after possible trimming and ansi processing), and is not the same as {..} below.*
 
 ## Column Specifics
 
@@ -98,7 +98,7 @@ If your input has columns (e.g., from `ls -l`), you can preview a specific colum
 ls -l | mm d " +" m.max_columns=9 px "echo 'File: {=9}'" h.header_lines 1 m.default_column 9 h.content="|||"
 ```
 
-_Note: `{=9}` uses the unquoted value of the 9th column (index 9)._
+*Note: `{=9}` uses the unquoted value of the 9th column (index 9).*
 
 #### Active Column
 
@@ -116,7 +116,7 @@ Join multiple columns together. `{2..}` joins the 2nd column to the end.
 ls -l | mm d "[ +]" h.h 1 px "echo 'Metadata: {=2..}'"
 ```
 
-_Note: `h.h` is short for `header.header_lines`._
+*Note: `h.h` is short for `header.header_lines`.*
 
 #### Action on Selection
 

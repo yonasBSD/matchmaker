@@ -25,6 +25,8 @@ if [ -d {} ]; then
 else
     if command -v bat >/dev/null 2>&1; then
         bat --binary no-printing --color=always {}
+    if command -v $PAGER >/dev/null 2>&1; then
+        $PAGER {}
     else
         cat {}
     fi

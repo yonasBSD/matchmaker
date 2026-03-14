@@ -9,8 +9,6 @@
 
 - Adaptable percentage (higher on smaller)
 - better hr styling (dim etc.)
-- The former is important in that it allows executing commands without breaking tui layout
-- vscroll has a bind but is not implemented in results
 - status/header click events
 - ExecuteAsync: support chaining actions without blocking ui
 - improve wrap_text and hscroll on non filtering

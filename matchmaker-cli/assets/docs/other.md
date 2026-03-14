@@ -51,7 +51,7 @@ Matchmaker uses a powerful fuzzy matcher (based on Nucleo) to filter and rank it
   - If names are provided, you can filter by them.
   - If unspecified, columns are automatically named `1`, `2`, ... (or `0`, `1`, ... if `names_from_zero` is true).
 
-_Note: Beware that any columns after `columns.max` are inaccessible!_
+*Note: Beware that any columns after `columns.max` are inaccessible!*
 
 ### Column Filtering
 

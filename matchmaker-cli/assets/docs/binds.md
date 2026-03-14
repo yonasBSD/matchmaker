@@ -58,7 +58,7 @@ This trigger then becomes a valid action:
 
 When sharing a command-line matchmaker command, you can also define your actions using these semantic triggers, allowing consumers to use their preferred binds for similar actions across different applications.
 
-_Note_: You can also dynamically rebind semantic triggers at runtime using the `Bind` action. For an advanced example, scroll to the bottom.
+*Note: You can also dynamically rebind semantic triggers at runtime using the `Bind` action. For an advanced example, scroll to the bottom.*
 
 ### Events
 

@@ -16,6 +16,7 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 - Mouse (location aware) scrolling! Horizontal scrolling! Grapheme-aware input wrapping!
 - Extremely intelligent[^18] text wrapping and width sizing.
 - Split input lines into multiple columns, that you can individually filter on (`%col query`[^17]), hide, and highlight.[^14]
+- Split input lines by _regex capture groups_.
 - Define `Execute/Preview/Print/Accept` actions with [templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) which _safely_ inject the current item(s) (yes, columns are supported here too).
 - All the dynamic UI support you could hope for: preview offsets, styled status lines, responsive header tables, wrapped footers, active and inactive column colors, stacked columns, multiple preview layouts[^15]... even overlays! (in the library).
 - Bind keys to multiple actions, bind actions to mouse triggers, bind actions to event triggers, bind keys to rebind keys, bind keys to modify the configuration, bind keys to run a shell script and use its output to more keys, bind keys to set the header, footer, status, input, bind keys to semantic triggers, bind semantic triggers to actions, bind keys to -- wait nope thats about it.
@@ -60,8 +61,8 @@ Pass it some items:
 find . | mm
 ```
 
-> [!NOTE]
-> The [default](./matchmaker-cli/assets/config.toml) input and preview commands rely on fd, bat and eza. For an optimal experience, install them or update your configuration.
+> [!TIP]
+> The [default](./matchmaker-cli/assets/config.toml) input and preview commands detect `fd`, `bat` and `eza` (otherwise falling back to ls and cat). Install them for a better experience!
 
 ## Configuration
 
@@ -209,11 +210,14 @@ mm \
 
 # Notes:
 # - in mm, results.scroll_wrap is by default true, while results.wrap = true is included in the default config.
-# - in mm --multi (from fzf) is always true. It can be disabled by not binding the Select actions, as is done here.
-# - matcher.sort is not available on the cargo version and requires the installer.
+# - in mm --multi (from fzf) is always true. It can be disabled by not binding the Select actions, as is done here
+# - matcher.sort_threshold is not available on the cargo version and requires the installer.
 # - results.autoscroll.context=0 is a setting which does not appear in fzf but which is 4 by default in mm.
+```
 
-# short version, omitting defaults
+- In `mm` using aliases (and omitting defaults):
+
+```
 mm m.sort=0 ui.border.type=Plain tui.p=45 r.r= r.w=false \
 b.Shift-BackTab=Up b.BackTab=Up b.Tab=Down
 ```
