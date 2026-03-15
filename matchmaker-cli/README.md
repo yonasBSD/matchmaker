@@ -62,7 +62,7 @@ find . | mm
 ```
 
 > [!TIP]
-> The [default](./matchmaker-cli/assets/config.toml) input and preview commands detect `fd`, `bat` and `eza` (otherwise falling back to ls and cat). Install them for a better experience!
+> The [default](./matchmaker-cli/assets/config.toml) input and preview commands detect `fd`, `bat` and `eza` (otherwise falling back to `ls` and `cat`). Install them for a better experience!
 
 ## Configuration
 
