@@ -22,6 +22,8 @@ Register-ArgumentCompleter -Native -CommandName 'mm' -ScriptBlock {
     $completions = @(switch ($command) {
         'mm' {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config')
+            [CompletionResult]::new('-o', '-o', [CompletionResultType]::ParameterName, 'o')
+            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'override')
             [CompletionResult]::new('--doc', '--doc', [CompletionResultType]::ParameterName, 'Display documentation')
             [CompletionResult]::new('--dump-config', '--dump-config', [CompletionResultType]::ParameterName, 'dump-config')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'F')

@@ -15,8 +15,9 @@ use crate::action::MMAction;
 #[serde(deny_unknown_fields)]
 pub struct Config {
     // configure the ui
-    #[serde(default, flatten)]
+    #[serde(default)]
     #[partial(attr)]
+    #[serde(flatten)]
     pub render: RenderConfig,
 
     // configure binds ( keypress/mouseevent/event => Actions )

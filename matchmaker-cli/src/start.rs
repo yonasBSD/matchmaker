@@ -68,6 +68,12 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     };
 
     // let original = config.clone();
+
+    for p in cli.r#override {
+        let o = load_type(p, |s| toml::from_str(s))?;
+        config.apply(o);
+    }
+
     config.apply(partial); // resolve config.exit first
     // log::debug!("unchanged: {}", original == config);
 

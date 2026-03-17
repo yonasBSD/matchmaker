@@ -220,7 +220,9 @@ mm m.sort=0 ui.border.type=Plain tui.p=45 r.r= r.w=false \
 b.Shift-BackTab=Up b.BackTab=Up b.Tab=Down
 ```
 
-For quick reference, `mm --doc` provides fairly readable and comprehensive guides to various topics.
+For quick reference, `mm --doc` provides fairly readable and comprehensive guides to various topics. [^50]
+
+[^50]: More on comparisons: https://github.com/Squirreljetpack/matchmaker/issues/1
 
 ## Library
 
