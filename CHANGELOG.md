@@ -1,3 +1,10 @@
+## [0.0.21] - 2026-03-17
+
+### 🚀 Features
+
+- --override (layered configs)
+- finish implementing header wrapping config option
+
 ## [0.0.20] - 2026-03-15
 
 ### 🐛 Bug Fixes
